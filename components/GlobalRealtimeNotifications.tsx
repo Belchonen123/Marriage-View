@@ -109,28 +109,7 @@ export function GlobalRealtimeNotifications() {
               /* ignore */
             }
           }
-
-          show(`${callerName} is inviting you to a video date`, "info", {
-            durationMs: 24_000,
-            actions: [
-              {
-                label: "Answer",
-                onClick: () => {
-                  ringRef.current?.stop();
-                  setIncoming(null);
-                  router.push(`${chatPath}?video=1`);
-                },
-              },
-              {
-                label: "Decline",
-                onClick: () => {
-                  ringRef.current?.stop();
-                  setIncoming(null);
-                  dismissCall(row.match_id);
-                },
-              },
-            ],
-          });
+          /* Full-screen incoming UI + ringtone; skip duplicate toast with Answer/Decline. */
         },
       );
 

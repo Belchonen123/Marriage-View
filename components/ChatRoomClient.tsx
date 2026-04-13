@@ -8,9 +8,7 @@ import { MatchJournalPanel } from "@/components/MatchJournalPanel";
 import { MatchJournalPostCallModal } from "@/components/MatchJournalPostCallModal";
 import { MatchMilestonesTimeline } from "@/components/MatchMilestonesTimeline";
 import { VideoCall, type VideoCallPhase } from "@/components/VideoCall";
-import { VideoCallLobby } from "@/components/VideoCallLobby";
-import { VideoCoordinationGateModal } from "@/components/VideoCoordinationGateModal";
-import { VideoCallPreludeModal } from "@/components/VideoCallPreludeModal";
+import { VideoDatePrimerModal } from "@/components/VideoDatePrimerModal";
 import { ModalCloseButton } from "@/components/ModalCloseButton";
 import { useToast } from "@/components/ToastProvider";
 import type { ViewerProfile } from "@/lib/types";
@@ -48,11 +46,9 @@ export function ChatRoomClient({
   const router = useRouter();
   const { show } = useToast();
   const searchParams = useSearchParams();
-  const [videoOpen, setVideoOpen] = useState(() => searchParams.get("video") === "1");
+  const [videoOpen, setVideoOpen] = useState(false);
   const [videoPhase, setVideoPhase] = useState<VideoCallPhase>("idle");
-  const [videoCoordinationOpen, setVideoCoordinationOpen] = useState(false);
-  const [videoPreludeOpen, setVideoPreludeOpen] = useState(false);
-  const [videoLobbyOpen, setVideoLobbyOpen] = useState(false);
+  const [videoPrimerOpen, setVideoPrimerOpen] = useState(false);
   const videoCooldownUntil = useRef(0);
   const [roomTab, setRoomTab] = useState<"messages" | "common">("messages");
   const [coachOpen, setCoachOpen] = useState(false);
@@ -67,23 +63,34 @@ export function ChatRoomClient({
     router.replace("/matches");
   }, [router, show]);
 
-  const openVideoDateFlow = useCallback(() => {
+  const openVideoDateFlow = useCallback(async () => {
     const now = Date.now();
     if (now < videoCooldownUntil.current) return;
     if (videoOpen && (videoPhase === "connecting" || videoPhase === "connected")) return;
     videoCooldownUntil.current = now + 700;
-    setVideoCoordinationOpen(true);
-  }, [videoOpen, videoPhase]);
 
-  const startVideoAfterPrelude = useCallback(() => {
-    setVideoPreludeOpen(false);
-    setVideoLobbyOpen(true);
-  }, []);
+    const res = await fetch(`/api/livekit/room-status?matchId=${encodeURIComponent(matchId)}`, {
+      credentials: "include",
+    });
+    const data = (await res.json().catch(() => ({}))) as { hasRemote?: boolean };
+    if (data.hasRemote) {
+      setVideoOpen(true);
+      return;
+    }
+    setVideoPrimerOpen(true);
+  }, [matchId, videoOpen, videoPhase]);
 
+  /** Answering a ring or deep link: join immediately (no primer or lobby). */
   useEffect(() => {
     if (searchParams.get("video") !== "1") return;
     queueMicrotask(() => {
-      setVideoLobbyOpen(true);
+      void fetch("/api/call-signal/dismiss", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId }),
+      });
+      setVideoOpen(true);
       router.replace(`/chat/${matchId}`, { scroll: false });
     });
   }, [searchParams, matchId, router]);
@@ -197,7 +204,7 @@ export function ChatRoomClient({
                 <button
                   type="button"
                   disabled={videoOpen && (videoPhase === "connecting" || videoPhase === "connected")}
-                  onClick={() => openVideoDateFlow()}
+                  onClick={() => void openVideoDateFlow()}
                   className="cta-video-primary order-1 min-h-10 w-full px-4 py-2.5 text-sm lg:w-auto"
                 >
                   {videoOpen && videoPhase === "connecting" ? "Connecting…" : "Video Date Room"}
@@ -318,10 +325,8 @@ export function ChatRoomClient({
           selfId={selfId}
           otherUserId={otherUserId}
           otherName={otherName}
-          onRequestVideoDate={() => openVideoDateFlow()}
-          suppressVideoDateNudge={
-            videoCoordinationOpen || videoPreludeOpen || videoLobbyOpen || videoOpen
-          }
+          onRequestVideoDate={() => void openVideoDateFlow()}
+          suppressVideoDateNudge={videoPrimerOpen || videoOpen}
         />
       ) : (
         <div className="space-y-4">
@@ -330,28 +335,12 @@ export function ChatRoomClient({
           <MatchCommonGround matchId={matchId} otherName={otherName} />
         </div>
       )}
-      <VideoCoordinationGateModal
+      <VideoDatePrimerModal
         otherName={otherName}
-        open={videoCoordinationOpen}
-        onClose={() => setVideoCoordinationOpen(false)}
-        onCoordinated={() => {
-          setVideoCoordinationOpen(false);
-          setVideoPreludeOpen(true);
-        }}
-      />
-      <VideoCallPreludeModal
-        otherName={otherName}
-        open={videoPreludeOpen}
-        onCancel={() => setVideoPreludeOpen(false)}
-        onConfirm={() => startVideoAfterPrelude()}
-      />
-      <VideoCallLobby
-        matchId={matchId}
-        otherName={otherName}
-        open={videoLobbyOpen}
-        onCancel={() => setVideoLobbyOpen(false)}
-        onComplete={() => {
-          setVideoLobbyOpen(false);
+        open={videoPrimerOpen}
+        onClose={() => setVideoPrimerOpen(false)}
+        onStartCall={() => {
+          setVideoPrimerOpen(false);
           setVideoOpen(true);
         }}
       />
@@ -362,7 +351,6 @@ export function ChatRoomClient({
           onClose={(detail) => {
             setVideoPhase("idle");
             setVideoOpen(false);
-            setVideoLobbyOpen(false);
             if (detail?.hadConnected) {
               setJournalAfterCallOpen(true);
             }
