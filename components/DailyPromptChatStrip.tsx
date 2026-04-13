@@ -11,6 +11,7 @@ type PromptRes = {
   prompt?: string;
 };
 
+/** Daily icebreaker UI; collapsible (<details>, closed by default) to limit composer clutter. */
 export function DailyPromptChatStrip({ onUseInMessage }: { onUseInMessage: (text: string) => void }) {
   const [data, setData] = useState<PromptRes | null>(null);
   const [slot, setSlot] = useState(0);

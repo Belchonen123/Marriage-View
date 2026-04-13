@@ -189,17 +189,28 @@ export function ChatThread({
     return null;
   }, [displayItems]);
 
+  /** Weekday label + full insert text; shown only inside collapsed “Scheduling ideas”. */
   const scheduleSnippets = useMemo(() => {
-    const out: string[] = [];
+    const out: { label: string; text: string }[] = [];
     const base = new Date();
     for (let add = 1; add <= 5 && out.length < 3; add++) {
       const x = new Date(base);
       x.setDate(x.getDate() + add);
       const wd = x.toLocaleDateString(undefined, { weekday: "short" });
-      out.push(`Are you free ${wd} for a video date? I'm flexible on time if that helps.`);
+      out.push({
+        label: wd,
+        text: `Are you free ${wd} for a video date? I'm flexible on time if that helps.`,
+      });
     }
     return out;
   }, []);
+
+  const footerEngagement = useMemo(
+    () => chatEngagementMetrics(displayItems, selfId, otherUserId),
+    [displayItems, selfId, otherUserId],
+  );
+  /** After both sides have sent at least one message, show optional thread tips (collapsed by default). */
+  const showThreadTips = footerEngagement.my >= 1 && footerEngagement.their >= 1;
 
   const messageGroups = useMemo(
     () =>
@@ -717,7 +728,7 @@ export function ChatThread({
           <div className="flex h-full min-h-[200px] items-center justify-center px-2">
             <EmptyState
               title="No messages yet"
-              description="One short hello is enough to coordinate a video date. Keep chat light — save deeper topics for your Video Date Room."
+              description="Say hi and suggest a time to connect. Deeper topics are easier face to face."
             >
               <Link
                 href="/onboarding/profile"
@@ -815,33 +826,53 @@ export function ChatThread({
         </p>
       ) : null}
       <DailyPromptChatStrip onUseInMessage={(t) => setText((prev) => (prev.trim() ? `${prev.trim()}\n\n${t}` : t))} />
-      {displayItems.length > 0 ? (
-        <div className="border-t border-zinc-100 px-3 py-2 dark:border-zinc-800/80">
-          <p className="text-center text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-            {messagesThisRollingWeek} message{messagesThisRollingWeek !== 1 ? "s" : ""} in the last 7 days in this
-            thread — pace is personal; quality beats quantity.
-          </p>
-          {lastPersistedMessage ? (
-            <p className="mt-1.5 text-center text-[10px] text-zinc-500 dark:text-zinc-400">
-              Last in thread:{" "}
-              <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                {lastPersistedMessage.sender_id === selfId ? "You" : otherName}
-              </span>
+      {displayItems.length > 0 && showThreadTips ? (
+        <details className="group border-t border-zinc-100 dark:border-zinc-800/80">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-zinc-200/90 bg-zinc-50 text-zinc-500 transition group-open:rotate-180 dark:border-zinc-600 dark:bg-zinc-900/60"
+              aria-hidden
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+              Scheduling ideas · thread stats
+            </span>
+            <span className="ml-auto shrink-0 text-[10px] text-zinc-400 group-open:hidden dark:text-zinc-500">
+              Open
+            </span>
+          </summary>
+          <div className="space-y-2 border-t border-zinc-100 px-3 pb-2.5 pt-1.5 dark:border-zinc-800/80">
+            <p className="text-center text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+              {messagesThisRollingWeek} message{messagesThisRollingWeek !== 1 ? "s" : ""} this week
+              {lastPersistedMessage ? (
+                <>
+                  {" "}
+                  · Last:{" "}
+                  <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                    {lastPersistedMessage.sender_id === selfId ? "You" : otherName}
+                  </span>
+                </>
+              ) : null}
             </p>
-          ) : null}
-          <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-            {scheduleSnippets.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className="max-w-[100%] truncate rounded-full border border-zinc-200/90 bg-zinc-50 px-2.5 py-1 text-[10px] font-medium text-zinc-700 transition hover:border-[var(--accent)]/40 hover:text-[var(--accent)] dark:border-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300"
-                onClick={() => setText((prev) => (prev.trim() ? `${prev.trim()}\n\n${s}` : s))}
-              >
-                Insert: {s.slice(0, 28)}…
-              </button>
-            ))}
+            <p className="text-[10px] text-zinc-500 dark:text-zinc-400">Insert a time suggestion:</p>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {scheduleSnippets.map((s) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  className="rounded-full border border-zinc-200/90 bg-zinc-50 px-2.5 py-1 text-[10px] font-medium text-zinc-700 transition hover:border-[var(--accent)]/40 hover:text-[var(--accent)] dark:border-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300"
+                  title={s.text}
+                  onClick={() => setText((prev) => (prev.trim() ? `${prev.trim()}\n\n${s.text}` : s.text))}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </details>
       ) : null}
       <div className="border-t border-zinc-200/80 p-3 dark:border-zinc-800/80">
         <div className="flex items-end gap-2 rounded-2xl border border-zinc-200/90 bg-[var(--background)] p-1.5 pl-3 dark:border-zinc-700/90">
@@ -854,7 +885,7 @@ export function ChatThread({
             className="max-h-32 min-h-[44px] flex-1 resize-none bg-transparent py-2.5 text-sm leading-snug outline-none placeholder:text-zinc-400"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Short note — save the real conversation for your Video Date Room…"
+            placeholder="Message…"
             rows={1}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
