@@ -1,0 +1,17 @@
+{
+  "name": "Marriage View — The Video Dating Platform",
+  "short_name": "Marriage View",
+  "description": "Thoughtful matching, chat, and video.",
+  "start_url": "/discover",
+  "display": "standalone",
+  "background_color": "#fff5f5",
+  "theme_color": "#be123c",
+  "icons": [
+    {
+      "src": "/window.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

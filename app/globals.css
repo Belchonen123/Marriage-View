@@ -1,0 +1,417 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Layout tokens: use --radius-lg, --shadow-card, --accent* for cards and CTAs so surfaces stay visually aligned. */
+:root {
+  --background: #fff5f5;
+  --foreground: #1a0a0c;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-elevated: #ffffff;
+  --accent: #be123c;
+  --accent-hover: #9f1239;
+  --accent-muted: rgba(190, 18, 60, 0.12);
+  --ring: rgba(190, 18, 60, 0.45);
+  --radius-lg: 1.25rem;
+  --border-card: rgba(26, 10, 12, 0.07);
+  --shadow-card:
+    0 1px 2px rgba(26, 10, 12, 0.06),
+    0 2px 10px rgba(190, 18, 60, 0.09),
+    0 12px 40px rgba(26, 10, 12, 0.09),
+    0 28px 64px rgba(190, 18, 60, 0.07);
+  --shadow-card-hover:
+    0 2px 6px rgba(26, 10, 12, 0.08),
+    0 8px 32px rgba(190, 18, 60, 0.14),
+    0 20px 56px rgba(26, 10, 12, 0.11),
+    0 40px 80px rgba(190, 18, 60, 0.09);
+  --shadow-card-dark:
+    0 1px 3px rgba(0, 0, 0, 0.45),
+    0 6px 28px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 22px 56px rgba(251, 113, 133, 0.1);
+  --shadow-card-hover-dark:
+    0 2px 8px rgba(0, 0, 0, 0.55),
+    0 14px 44px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 32px 72px rgba(251, 113, 133, 0.14);
+  --shadow-nav:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 4px 24px rgba(26, 10, 12, 0.1),
+    0 14px 44px rgba(190, 18, 60, 0.08);
+  --shadow-nav-dark:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 4px 28px rgba(0, 0, 0, 0.5),
+    0 14px 48px rgba(0, 0, 0, 0.35);
+  --shadow-modal:
+    0 2px 8px rgba(26, 10, 12, 0.12),
+    0 16px 48px rgba(26, 10, 12, 0.14),
+    0 32px 72px rgba(190, 18, 60, 0.12),
+    0 0 0 1px rgba(26, 10, 12, 0.04);
+  --shadow-modal-dark:
+    0 2px 12px rgba(0, 0, 0, 0.55),
+    0 24px 64px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.09),
+    0 40px 88px rgba(251, 113, 133, 0.12);
+  --mesh-1: rgba(251, 113, 133, 0.18);
+  --mesh-2: rgba(253, 186, 116, 0.14);
+  --mesh-3: rgba(244, 114, 182, 0.1);
+}
+
+html.dark {
+  --background: #0a0708;
+  --foreground: #fdf2f4;
+  --surface: rgba(24, 24, 27, 0.75);
+  --surface-elevated: #18181b;
+  --accent: #fb7185;
+  --accent-hover: #fda4af;
+  --accent-muted: rgba(251, 113, 133, 0.15);
+  --ring: rgba(251, 113, 133, 0.5);
+  --border-card: rgba(255, 255, 255, 0.09);
+  --mesh-1: rgba(190, 18, 60, 0.14);
+  --mesh-2: rgba(251, 113, 133, 0.09);
+  --mesh-3: rgba(120, 50, 70, 0.18);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  min-height: 100%;
+  background-image:
+    radial-gradient(ellipse 125% 82% at 50% -22%, var(--mesh-1), transparent),
+    radial-gradient(ellipse 82% 52% at 100% 48%, var(--mesh-2), transparent),
+    radial-gradient(ellipse 62% 42% at 0% 82%, var(--mesh-3), transparent);
+  background-attachment: fixed;
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.card-surface {
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-card);
+}
+
+html.dark .card-surface {
+  box-shadow: var(--shadow-card-dark);
+}
+
+/** Deeper stack for dialogs / floating panels (use with .card-surface or alone). */
+.card-surface-modal {
+  box-shadow: var(--shadow-modal);
+}
+
+html.dark .card-surface-modal {
+  box-shadow: var(--shadow-modal-dark);
+}
+
+/** Optional hero strip — use sparingly. */
+.card-surface-glow {
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 1px rgba(190, 18, 60, 0.06),
+    0 0 56px rgba(190, 18, 60, 0.14);
+}
+
+html.dark .card-surface-glow {
+  box-shadow:
+    var(--shadow-card-dark),
+    0 0 0 1px rgba(251, 113, 133, 0.12),
+    0 0 64px rgba(251, 113, 133, 0.1);
+}
+
+.nav-shell {
+  box-shadow: var(--shadow-nav);
+}
+
+html.dark .nav-shell {
+  box-shadow: var(--shadow-nav-dark);
+}
+
+.input-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+
+@keyframes nexus-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nexus-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes nexus-score-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-card-in {
+  animation: nexus-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-in {
+    animation: none;
+  }
+}
+
+.animate-score-pop {
+  animation: nexus-score-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.1s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-score-pop {
+    animation: none;
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.1) 50%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+  background-size: 200% 100%;
+}
+
+html.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: nexus-shimmer 1.2s ease-in-out infinite;
+}
+
+html.dark .skeleton-shimmer::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    animation: none;
+  }
+}
+
+@keyframes nexus-typing-dot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.chat-typing-dot {
+  animation: nexus-typing-dot 1s ease-in-out infinite;
+}
+
+.chat-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing-dot {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* High-contrast primary CTA for video entry points */
+.cta-video-primary {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 2px 8px rgba(127, 29, 29, 0.35),
+    0 10px 28px rgba(190, 18, 60, 0.28);
+  transition:
+    box-shadow 0.2s ease,
+    filter 0.2s ease,
+    transform 0.15s ease;
+}
+
+html.dark .cta-video-primary {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 2px 12px rgba(0, 0, 0, 0.45),
+    0 12px 32px rgba(251, 113, 133, 0.22);
+}
+
+.cta-video-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 4px 14px rgba(127, 29, 29, 0.4),
+    0 14px 36px rgba(190, 18, 60, 0.32);
+}
+
+html.dark .cta-video-primary:hover:not(:disabled) {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 4px 16px rgba(0, 0, 0, 0.55),
+    0 14px 40px rgba(251, 113, 133, 0.28);
+}
+
+.cta-video-primary:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 4px var(--ring),
+    0 2px 8px rgba(127, 29, 29, 0.35),
+    0 10px 28px rgba(190, 18, 60, 0.28);
+}
+
+html.dark .cta-video-primary:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 4px var(--ring),
+    0 2px 12px rgba(0, 0, 0, 0.45),
+    0 12px 32px rgba(251, 113, 133, 0.22);
+}
+
+.cta-video-primary:active:not(:disabled) {
+  transform: scale(0.98);
+  filter: brightness(0.98);
+}
+
+.cta-video-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  filter: grayscale(0.08);
+  box-shadow: none;
+}
+
+.cta-video-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  left: -40%;
+  width: 45%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.22) 45%,
+    transparent 90%
+  );
+  transform: translateX(-120%) skewX(-18deg);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .cta-video-primary:hover:not(:disabled)::after {
+    animation: cta-video-sheen 0.85s ease-out;
+  }
+}
+
+@keyframes cta-video-sheen {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta-video-primary::after {
+    display: none;
+  }
+  .cta-video-primary:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Micro-interactions */
+.motion-tap {
+  transition: transform 0.15s ease;
+}
+
+.motion-tap:active {
+  transform: scale(0.98);
+}
+
+.motion-card {
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
+}
+
+@media (hover: hover) {
+  .motion-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+  }
+
+  html.dark .motion-card:hover {
+    box-shadow: var(--shadow-card-hover-dark);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-tap:active {
+    transform: none;
+  }
+  .motion-card:hover {
+    transform: none;
+  }
+}
