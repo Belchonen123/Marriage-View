@@ -78,8 +78,8 @@ export function InboundLikesSection() {
       <h2 className="font-display text-lg font-semibold text-zinc-900 dark:text-zinc-50">Liked you</h2>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
         {n} {n === 1 ? "person liked" : "people liked"} you first — open{" "}
-        <strong className="font-medium text-zinc-800 dark:text-zinc-200">Likes</strong> for names and photos, then like
-        them back in <strong className="font-medium text-zinc-800 dark:text-zinc-200">Discover</strong> to match.
+        <strong className="font-medium text-zinc-800 dark:text-zinc-200">Likes</strong> for names and photos, then use{" "}
+        <strong className="font-medium text-zinc-800 dark:text-zinc-200">like or pass</strong> to match.
       </p>
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Link
@@ -92,7 +92,7 @@ export function InboundLikesSection() {
           href="/discover?prioritize_inbound=1"
           className="inline-flex justify-center rounded-full border border-zinc-300 bg-white/90 px-5 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900/80 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
-          Open Discover
+          Like or pass
         </Link>
       </div>
     </section>

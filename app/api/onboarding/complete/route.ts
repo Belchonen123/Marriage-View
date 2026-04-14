@@ -63,9 +63,25 @@ export async function POST() {
     }
   }
 
+  const gender = profile.gender as string | null;
+  if (gender !== "woman" && gender !== "man") {
+    return NextResponse.json(
+      {
+        error:
+          "Choose your gender (woman or man) on your profile step and save before finishing onboarding. Who you seek is set automatically to the opposite gender.",
+      },
+      { status: 400 },
+    );
+  }
+  const seeking = gender === "woman" ? "man" : "woman";
+
   const { error } = await admin
     .from("profiles")
-    .update({ onboarding_complete: true, updated_at: new Date().toISOString() })
+    .update({
+      onboarding_complete: true,
+      seeking,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", user.id);
 
   if (error) {

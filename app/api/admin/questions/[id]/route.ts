@@ -8,6 +8,11 @@ export const dynamic = "force-dynamic";
 
 const ANSWER_TYPES = new Set(["single", "multi", "likert", "text", "number"]);
 
+function readStrictBool(v: unknown): boolean | undefined {
+  if (v === true || v === false) return v;
+  return undefined;
+}
+
 export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -24,9 +29,27 @@ export async function PATCH(
 
   const patch: Record<string, unknown> = {};
 
-  if ("version" in body) patch.version = Number(body.version);
-  if ("sort_order" in body) patch.sort_order = Number(body.sort_order);
-  if ("prompt" in body) patch.prompt = String(body.prompt).trim();
+  if ("version" in body) {
+    const n = Number(body.version);
+    if (!Number.isFinite(n)) {
+      return NextResponse.json({ error: "version must be a finite number" }, { status: 400 });
+    }
+    patch.version = Math.round(n);
+  }
+  if ("sort_order" in body) {
+    const n = Number(body.sort_order);
+    if (!Number.isFinite(n)) {
+      return NextResponse.json({ error: "sort_order must be a finite number" }, { status: 400 });
+    }
+    patch.sort_order = Math.round(n);
+  }
+  if ("prompt" in body) {
+    const p = String(body.prompt).trim();
+    if (!p) {
+      return NextResponse.json({ error: "prompt cannot be empty" }, { status: 400 });
+    }
+    patch.prompt = p;
+  }
   if ("answer_type" in body) {
     const at = String(body.answer_type);
     if (!ANSWER_TYPES.has(at)) {
@@ -37,9 +60,30 @@ export async function PATCH(
   if ("section" in body) {
     patch.section = body.section == null || body.section === "" ? null : String(body.section);
   }
-  if ("weight" in body) patch.weight = Number(body.weight);
-  if ("required" in body) patch.required = Boolean(body.required);
-  if ("dealbreaker" in body) patch.dealbreaker = Boolean(body.dealbreaker);
+  if ("weight" in body) {
+    const n = Number(body.weight);
+    if (!Number.isFinite(n) || n < 0) {
+      return NextResponse.json(
+        { error: "weight must be a non-negative finite number" },
+        { status: 400 },
+      );
+    }
+    patch.weight = n;
+  }
+  if ("required" in body) {
+    const b = readStrictBool(body.required);
+    if (b === undefined) {
+      return NextResponse.json({ error: "required must be a boolean" }, { status: 400 });
+    }
+    patch.required = b;
+  }
+  if ("dealbreaker" in body) {
+    const b = readStrictBool(body.dealbreaker);
+    if (b === undefined) {
+      return NextResponse.json({ error: "dealbreaker must be a boolean" }, { status: 400 });
+    }
+    patch.dealbreaker = b;
+  }
   if ("options" in body) {
     let options: unknown = body.options;
     if (typeof options === "string") {

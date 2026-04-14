@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isPairBlocked } from "@/lib/pair-blocked";
 import { AccessToken } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
 
@@ -47,8 +48,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const calleeId =
-    match.user_a === user.id ? (match.user_b as string) : (match.user_a as string);
+  const ma = match.user_a as string;
+  const mb = match.user_b as string;
+  if (await isPairBlocked(admin, ma, mb)) {
+    return NextResponse.json(
+      { error: "Video calls are not available between blocked accounts." },
+      { status: 403 },
+    );
+  }
+
+  const calleeId = ma === user.id ? mb : ma;
 
   const since = new Date(Date.now() - 45_000).toISOString();
   const { data: recentSig } = await admin

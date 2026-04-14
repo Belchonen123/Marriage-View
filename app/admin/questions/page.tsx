@@ -1,7 +1,7 @@
 "use client";
 
 import { adminApiFetch } from "@/lib/admin-api-fetch";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Question = {
   id: string;
@@ -29,6 +29,19 @@ const emptyForm = {
   dealbreaker: false,
 };
 
+function finiteNum(v: unknown, fallback: number): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function optionsToEditorText(options: unknown): { text: string; serializeError: boolean } {
+  try {
+    return { text: JSON.stringify(options ?? null, null, 2), serializeError: false };
+  } catch {
+    return { text: "null", serializeError: true };
+  }
+}
+
 async function fetchQuestionsList() {
   const res = await adminApiFetch("/api/admin/questions");
   const data = await res.json();
@@ -39,6 +52,7 @@ async function fetchQuestionsList() {
 }
 
 export default function AdminQuestionsPage() {
+  const formSectionRef = useRef<HTMLDivElement | null>(null);
   const [items, setItems] = useState<Question[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -73,7 +87,14 @@ export default function AdminQuestionsPage() {
     setItems(result.items);
   }
 
+  function scrollEditorIntoView() {
+    window.setTimeout(() => {
+      formSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
+
   function startNew() {
+    setError(null);
     const nextOrder = items.length ? Math.max(...items.map((q) => q.sort_order)) + 1 : 1;
     const maxVersion = items.length ? Math.max(...items.map((q) => q.version)) : 1;
     setForm({
@@ -82,32 +103,49 @@ export default function AdminQuestionsPage() {
       version: maxVersion,
       optionsText: '["Option A","Option B"]',
     });
+    scrollEditorIntoView();
   }
 
   function startEdit(q: Question) {
+    setError(null);
+    const { text: optionsText, serializeError } = optionsToEditorText(q.options);
+    if (serializeError) {
+      setError(
+        "Options for this question could not be serialized (invalid JSON value). Showing null — fix in DB or re-enter options below.",
+      );
+    }
     setForm({
       id: q.id,
-      version: q.version,
-      sort_order: q.sort_order,
+      version: Math.round(finiteNum(q.version, 1)),
+      sort_order: Math.round(finiteNum(q.sort_order, 0)),
       section: q.section ?? "",
       prompt: q.prompt,
       answer_type: q.answer_type,
-      optionsText: JSON.stringify(q.options ?? null, null, 2),
-      weight: q.weight,
-      required: q.required,
-      dealbreaker: q.dealbreaker,
+      optionsText,
+      weight: finiteNum(q.weight, 1),
+      required: Boolean(q.required),
+      dealbreaker: Boolean(q.dealbreaker),
     });
+    scrollEditorIntoView();
   }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (!Number.isFinite(form.weight) || form.weight < 0) {
+      setError("Weight must be a non-negative number.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       let options: unknown = null;
       const trimmed = form.optionsText.trim();
       if (trimmed) {
-        options = JSON.parse(trimmed);
+        try {
+          options = JSON.parse(trimmed);
+        } catch {
+          throw new Error("Options must be valid JSON.");
+        }
       }
       if (form.id) {
         const res = await adminApiFetch(`/api/admin/questions/${form.id}`, {
@@ -222,8 +260,14 @@ export default function AdminQuestionsPage() {
         ))}
       </ul>
 
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div
+        ref={formSectionRef}
+        className="scroll-mt-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
+      >
         <h2 className="text-sm font-semibold">{form.id ? "Edit question" : "Create question"}</h2>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          After you click <strong>Edit</strong> on a row, the form loads here — scroll down if you don&apos;t see it.
+        </p>
         <form onSubmit={save} className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-xs sm:col-span-2">
             <span className="text-zinc-600 dark:text-zinc-400">Prompt</span>
@@ -263,7 +307,10 @@ export default function AdminQuestionsPage() {
               type="number"
               required
               value={form.version}
-              onChange={(e) => setForm((f) => ({ ...f, version: Number(e.target.value) }))}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setForm((f) => ({ ...f, version: Number.isFinite(v) ? v : f.version }));
+              }}
               className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
             />
           </label>
@@ -273,7 +320,10 @@ export default function AdminQuestionsPage() {
               type="number"
               required
               value={form.sort_order}
-              onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) }))}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setForm((f) => ({ ...f, sort_order: Number.isFinite(v) ? v : f.sort_order }));
+              }}
               className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
             />
           </label>
@@ -282,9 +332,13 @@ export default function AdminQuestionsPage() {
             <input
               type="number"
               step="0.1"
+              min={0}
               required
               value={form.weight}
-              onChange={(e) => setForm((f) => ({ ...f, weight: Number(e.target.value) }))}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setForm((f) => ({ ...f, weight: Number.isFinite(v) ? v : f.weight }));
+              }}
               className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
             />
           </label>

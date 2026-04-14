@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { interactionHourlyLimitForTier, getUserTier } from "@/lib/entitlements";
+import { isAdminSuspended } from "@/lib/profile-suspension";
+import type { ProfileRow } from "@/lib/types";
 import { sendWebPushToUser } from "@/lib/push-notify";
 import { underInteractionLimit } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";

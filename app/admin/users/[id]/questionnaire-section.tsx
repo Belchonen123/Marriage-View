@@ -2,6 +2,7 @@
 
 import { adminApiFetch } from "@/lib/admin-api-fetch";
 import type { AnswerType, QuestionRow } from "@/lib/types";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type QuestionnairePayload = {
@@ -170,6 +171,16 @@ export function AdminQuestionnaireSection({ userId }: { userId: string }) {
       <h2 className="text-lg font-semibold">Questionnaire</h2>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
         Support and moderation only. Answers follow this user&apos;s quiz version ({data?.version ?? "…"}).
+      </p>
+      <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+        To change question <strong>weights</strong>, prompts, or the bank, use{" "}
+        <Link
+          href="/admin/questions"
+          className="font-medium text-rose-700 underline-offset-2 hover:underline dark:text-rose-400"
+        >
+          Admin → Questionnaire
+        </Link>
+        .
       </p>
 
       {loading ? (

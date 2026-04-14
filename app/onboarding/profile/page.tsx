@@ -6,6 +6,20 @@ import { reverseGeocodeLatLng } from "@/lib/location/reverse-geocode";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+const GENDER_OPTIONS = ["woman", "man"] as const;
+
+function normalizeGender(value: string | null | undefined): "" | "woman" | "man" {
+  const v = value ?? "";
+  if (v === "woman" || v === "man") return v;
+  return "";
+}
+
+function seekingForGender(g: string): "man" | "woman" | null {
+  if (g === "woman") return "man";
+  if (g === "man") return "woman";
+  return null;
+}
+
 export default function OnboardingProfilePage() {
   const supabase = useMemo(() => createClient(), []);
   const [displayName, setDisplayName] = useState("");
@@ -13,8 +27,7 @@ export default function OnboardingProfilePage() {
   const [city, setCity] = useState("");
   const [cityChoice, setCityChoice] = useState<string>("");
   const [bio, setBio] = useState("");
-  const [gender, setGender] = useState("woman");
-  const [seeking, setSeeking] = useState("man");
+  const [gender, setGender] = useState<"" | "woman" | "man">("");
   const [ageMin, setAgeMin] = useState(22);
   const [ageMax, setAgeMax] = useState(45);
   const [maxKm, setMaxKm] = useState(200);
@@ -41,8 +54,7 @@ export default function OnboardingProfilePage() {
         else if (c || (p.latitude != null && p.longitude != null)) setCityChoice(CUSTOM_CITY_VALUE);
         else setCityChoice("");
         setBio(p.bio ?? "");
-        setGender(p.gender ?? "woman");
-        setSeeking(p.seeking ?? "man");
+        setGender(normalizeGender(p.gender));
         setAgeMin(p.age_min ?? 22);
         setAgeMax(p.age_max ?? 45);
         setMaxKm(p.max_distance_km ?? 200);
@@ -128,6 +140,12 @@ export default function OnboardingProfilePage() {
       return;
     }
 
+    if (gender !== "woman" && gender !== "man") {
+      setMsg("Please select your gender.");
+      return;
+    }
+    const seeking = gender === "woman" ? "man" : "woman";
+
     const { data, error } = await supabase
       .from("profiles")
       .upsert(
@@ -181,6 +199,8 @@ export default function OnboardingProfilePage() {
   const saveButtonClass =
     "motion-tap w-full rounded-full bg-rose-700 px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-rose-800 sm:w-auto sm:py-2";
 
+  const derivedSeeking = seekingForGender(gender);
+
   return (
     <div className="mx-auto max-w-lg space-y-6 pb-28 sm:pb-6">
       <div>
@@ -188,11 +208,15 @@ export default function OnboardingProfilePage() {
           Your profile
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-          Gender and seeking should use matching labels (e.g. woman / man) so filters line up.
+          Choose your gender below. Who you are seeking is set automatically to the opposite gender so matching stays
+          aligned.
         </p>
       </div>
 
-      <section className="card-surface motion-card space-y-4 border border-zinc-200/80 p-5 dark:border-zinc-800/80">
+      <section
+        id="onboarding-basics"
+        className="card-surface motion-card space-y-4 border border-zinc-200/80 p-5 dark:border-zinc-800/80 scroll-mt-24"
+      >
         <h2 className="font-display text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           Basics
         </h2>
@@ -288,7 +312,10 @@ export default function OnboardingProfilePage() {
         </div>
       </section>
 
-      <section className="card-surface motion-card space-y-4 border border-zinc-200/80 p-5 dark:border-zinc-800/80">
+      <section
+        id="onboarding-partner-prefs"
+        className="card-surface motion-card space-y-4 border border-zinc-200/80 p-5 dark:border-zinc-800/80 scroll-mt-24"
+      >
         <h2 className="font-display text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           Partner preferences
         </h2>
@@ -296,28 +323,26 @@ export default function OnboardingProfilePage() {
           <select
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
             value={gender}
-            onChange={(e) => setGender(e.target.value)}
+            onChange={(e) => setGender(e.target.value as "" | "woman" | "man")}
           >
-            {["woman", "man", "nonbinary"].map((g) => (
+            <option value="">Choose your gender…</option>
+            {GENDER_OPTIONS.map((g) => (
               <option key={g} value={g}>
                 {g}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Seeking (their gender)">
-          <select
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-            value={seeking}
-            onChange={(e) => setSeeking(e.target.value)}
-          >
-            {["man", "woman", "nonbinary", "everyone"].map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="rounded-lg border border-zinc-200/80 bg-zinc-50/80 px-3 py-2.5 text-sm dark:border-zinc-700/80 dark:bg-zinc-900/40">
+          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Seeking (their gender)</p>
+          {derivedSeeking ? (
+            <p className="mt-1 text-zinc-800 dark:text-zinc-200">
+              You’re seeking: <span className="font-semibold capitalize">{derivedSeeking}</span>
+            </p>
+          ) : (
+            <p className="mt-1 text-zinc-500 dark:text-zinc-500">Choose your gender to set who you’re seeking.</p>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Age min (preference)">
             <input
@@ -379,7 +404,8 @@ export default function OnboardingProfilePage() {
             {bio.trim() || "No bio yet — say hello in a sentence or two."}
           </p>
           <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-500">
-            Seeking: <span className="font-medium text-zinc-700 dark:text-zinc-300">{seeking}</span>
+            Seeking:{" "}
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">{derivedSeeking ?? "—"}</span>
           </p>
         </div>
       </section>

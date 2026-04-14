@@ -6,6 +6,16 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+const PROFILE_SELECT_WITH_SUSPENSION =
+  "id, display_name, birth_year, city, bio, gender, seeking, age_min, age_max, max_distance_km, photo_urls, questionnaire_version, onboarding_complete, admin_suspended, photo_guidelines_acknowledged, photo_verification_status, photo_verified_at, verification_selfie_path, created_at, updated_at, last_active_at, notification_prefs";
+
+const PROFILE_SELECT_WITHOUT_SUSPENSION = PROFILE_SELECT_WITH_SUSPENSION.replace(", admin_suspended,", ",");
+
+function isMissingAdminSuspendedColumn(err: { message?: string }): boolean {
+  const m = (err.message ?? "").toLowerCase();
+  return m.includes("admin_suspended") && (m.includes("does not exist") || m.includes("could not find"));
+}
+
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const gate = await requireAdmin();
   if (!gate.ok) return gate.response;
@@ -22,28 +32,38 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  const [{ data: profile, error: pErr }, { data: ent }, { data: userMatches, error: mErr }, { data: rankingRow }] =
-    await Promise.all([
-      admin
-        .from("profiles")
-        .select(
-          "id, display_name, birth_year, city, bio, gender, seeking, age_min, age_max, max_distance_km, photo_urls, questionnaire_version, onboarding_complete, photo_guidelines_acknowledged, photo_verification_status, photo_verified_at, verification_selfie_path, created_at, updated_at, last_active_at, notification_prefs",
-        )
-        .eq("id", id)
-        .maybeSingle(),
-      admin.from("user_entitlements").select("tier, effective_until, updated_at").eq("user_id", id).maybeSingle(),
-      admin
-        .from("matches")
-        .select("id, user_a, user_b, created_at")
-        .or(`user_a.eq.${id},user_b.eq.${id}`)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      admin
-        .from("user_ranking_prefs")
-        .select("engagement_multiplier, journal_entries_30d, updated_at")
-        .eq("user_id", id)
-        .maybeSingle(),
-    ]);
+  const [profRes, entRes, matchesRes, rankingRes] = await Promise.all([
+    admin.from("profiles").select(PROFILE_SELECT_WITH_SUSPENSION).eq("id", id).maybeSingle(),
+    admin.from("user_entitlements").select("tier, effective_until, updated_at").eq("user_id", id).maybeSingle(),
+    admin
+      .from("matches")
+      .select("id, user_a, user_b, created_at")
+      .or(`user_a.eq.${id},user_b.eq.${id}`)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    admin
+      .from("user_ranking_prefs")
+      .select("engagement_multiplier, journal_entries_30d, updated_at")
+      .eq("user_id", id)
+      .maybeSingle(),
+  ]);
+
+  let profile = profRes.data;
+  let pErr = profRes.error;
+  const { data: ent } = entRes;
+  const { data: userMatches, error: mErr } = matchesRes;
+  const { data: rankingRow } = rankingRes;
+
+  if (pErr && isMissingAdminSuspendedColumn(pErr)) {
+    const retry = await admin.from("profiles").select(PROFILE_SELECT_WITHOUT_SUSPENSION).eq("id", id).maybeSingle();
+    if (!retry.error && retry.data) {
+      profile = { ...retry.data, admin_suspended: false };
+      pErr = null;
+    } else {
+      profile = retry.data;
+      pErr = retry.error;
+    }
+  }
 
   if (pErr) {
     return NextResponse.json({ error: pErr.message }, { status: 500 });

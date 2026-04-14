@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isPairBlocked } from "@/lib/pair-blocked";
 import { sendWebPushToUser } from "@/lib/push-notify";
 import { underMessageLimit } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
@@ -44,8 +45,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Match not found" }, { status: 404 });
   }
 
-  const recipientId =
-    match.user_a === user.id ? (match.user_b as string) : (match.user_a as string);
+  const ma = match.user_a as string;
+  const mb = match.user_b as string;
+  if (await isPairBlocked(admin, ma, mb)) {
+    return NextResponse.json(
+      { error: "Messaging is not available between blocked accounts." },
+      { status: 403 },
+    );
+  }
+
+  const recipientId = ma === user.id ? mb : ma;
 
   const { data: inserted, error } = await supabase
     .from("messages")

@@ -3,12 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-export default async function OnboardingQuizPage() {
+export default async function OnboardingQuizPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { q: focusQuestionId } = await searchParams;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -43,7 +49,7 @@ export default async function OnboardingQuizPage() {
           </Link>
         </div>
       </div>
-      <QuizForm version={version} />
+      <QuizForm version={version} initialQuestionId={focusQuestionId ?? null} />
     </div>
   );
 }

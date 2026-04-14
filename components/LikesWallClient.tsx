@@ -90,7 +90,7 @@ export function LikesWallClient() {
           href="/discover?prioritize_inbound=1"
           className="mt-4 inline-flex rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 dark:border-zinc-600 dark:text-zinc-200"
         >
-          Back to Discover
+          Back to like or pass
         </Link>
       </div>
     );
@@ -103,13 +103,13 @@ export function LikesWallClient() {
       <div className="rounded-[var(--radius-lg)] border border-dashed border-zinc-200/90 bg-white/60 p-6 text-center dark:border-zinc-700/90 dark:bg-zinc-950/40">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">No inbound likes yet.</p>
         <p className="mt-1 text-xs text-zinc-500">
-          Keep passing and liking in Discover — when someone likes you first, they will show up here.
+          Keep liking or passing — when someone likes you first, they will show up here.
         </p>
         <Link
           href="/discover?prioritize_inbound=1"
           className="mt-4 inline-flex rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--accent-hover)]"
         >
-          Go to Discover
+          Like or pass
         </Link>
       </div>
     );
@@ -148,7 +148,7 @@ export function LikesWallClient() {
               href="/discover?prioritize_inbound=1"
               className="w-full rounded-full border border-zinc-300 py-2.5 text-center text-sm font-medium text-zinc-800 dark:border-zinc-600 dark:text-zinc-200 sm:w-auto sm:px-6"
             >
-              Find them in Discover
+              Find them while you like or pass
             </Link>
           </div>
         </div>
@@ -173,7 +173,7 @@ export function LikesWallClient() {
           href="/discover?prioritize_inbound=1"
           className="mt-4 inline-flex rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--accent-hover)]"
         >
-          Open Discover
+          Like or pass
         </Link>
       </div>
     );
@@ -182,7 +182,7 @@ export function LikesWallClient() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        These members liked you first. Open Discover to like them back and start a match.
+        These members liked you first. Like or pass to like them back and start a match.
       </p>
       <ul className="space-y-3">
         {items.map((p) => (
@@ -215,7 +215,7 @@ export function LikesWallClient() {
               href="/discover?prioritize_inbound=1"
               className="shrink-0 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[var(--accent-hover)]"
             >
-              Discover
+              Like or pass
             </Link>
           </li>
         ))}

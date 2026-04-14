@@ -14,10 +14,25 @@ import {
   scorePairExplain,
   type ExplainableScore,
 } from "@/lib/matching/score";
+import { isAdminSuspended } from "@/lib/profile-suspension";
 import type { MatchInsight, ProfileRow, PublicProfile, QuestionRow } from "@/lib/types";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+
+/** Explicit seeking, or opposite of gender when seeking is unset (keeps Discover aligned with onboarding). */
+function effectiveSeeking(
+  gender: string | null | undefined,
+  seeking: string | null | undefined,
+): string | null {
+  const s = seeking?.trim() || null;
+  if (s === "everyone") return "everyone";
+  if (s === "woman" || s === "man") return s;
+  const g = gender?.trim() || null;
+  if (g === "woman") return "man";
+  if (g === "man") return "woman";
+  return null;
+}
 
 type DiscoverDiag = {
   otherOnboardedInPool: number;
@@ -90,6 +105,12 @@ export async function GET(req: Request) {
   const profile = me as ProfileRow;
   if (!profile.onboarding_complete) {
     return NextResponse.json({ error: "Complete onboarding first" }, { status: 403 });
+  }
+  if (isAdminSuspended(profile)) {
+    return NextResponse.json(
+      { error: "Your account is suspended. Contact support if you think this is a mistake." },
+      { status: 403 },
+    );
   }
 
   const nowIso = new Date().toISOString();
@@ -186,14 +207,19 @@ export async function GET(req: Request) {
     inboundEligibleIds = new Set(eligibleInboundList);
   }
 
-  const { data: candidates } = await admin
+  const { data: candidates, error: candErr } = await admin
     .from("profiles")
     .select("*")
     .eq("onboarding_complete", true)
     .neq("id", user.id)
     .limit(200);
 
-  const pool = (candidates ?? []) as ProfileRow[];
+  if (candErr) {
+    return NextResponse.json({ error: `discover: ${candErr.message}` }, { status: 500 });
+  }
+
+  // Match RLS: treat null/undefined/false as not suspended. SQL `.eq(false)` would drop NULL rows.
+  let pool = ((candidates ?? []) as ProfileRow[]).filter((p) => !isAdminSuspended(p));
 
   if (eligibleInboundList.length > 0) {
     const inPool = new Set(pool.map((p) => p.id));
@@ -208,6 +234,7 @@ export async function GET(req: Request) {
         .neq("id", user.id);
 
       for (const row of (extraProfiles ?? []) as ProfileRow[]) {
+        if (isAdminSuspended(row)) continue;
         if (!inPool.has(row.id)) {
           inPool.add(row.id);
           pool.push(row);
@@ -258,13 +285,11 @@ export async function GET(req: Request) {
   const dDist = stage.length - afterDist.length;
   stage = afterDist;
 
+  const mySeek = effectiveSeeking(profile.gender, profile.seeking);
   const afterGender = stage.filter((row) => {
-    if (profile.seeking && row.gender && profile.seeking !== "everyone") {
-      if (profile.seeking !== row.gender) return false;
-    }
-    if (row.seeking && profile.gender && row.seeking !== "everyone") {
-      if (row.seeking !== profile.gender) return false;
-    }
+    const rowSeek = effectiveSeeking(row.gender, row.seeking);
+    if (mySeek && mySeek !== "everyone" && row.gender && mySeek !== row.gender) return false;
+    if (rowSeek && rowSeek !== "everyone" && profile.gender && rowSeek !== profile.gender) return false;
     return true;
   });
   const dGender = stage.length - afterGender.length;

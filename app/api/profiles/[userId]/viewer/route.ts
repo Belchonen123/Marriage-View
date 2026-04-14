@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { viewerIcebreakerSnippets } from "@/lib/icebreaker-answers";
+import { isAdminSuspended } from "@/lib/profile-suspension";
 import type { ProfileRow, ViewerProfile } from "@/lib/types";
 import { NextResponse } from "next/server";
 

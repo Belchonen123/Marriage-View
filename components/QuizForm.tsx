@@ -28,7 +28,13 @@ function isAutoAdvanceType(q: QuestionRow): boolean {
   return q.answer_type === "single" || q.answer_type === "likert";
 }
 
-export function QuizForm({ version }: { version: number }) {
+export function QuizForm({
+  version,
+  initialQuestionId,
+}: {
+  version: number;
+  initialQuestionId?: string | null;
+}) {
   const supabase = useMemo(() => createClient(), []);
   const { show } = useToast();
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
@@ -74,10 +80,21 @@ export function QuizForm({ version }: { version: number }) {
     };
   }, [supabase, version]);
 
+  useEffect(() => {
+    if (!initialQuestionId?.trim() || !questions.length || appliedInitialQuestionRef.current) return;
+    const idx = questions.findIndex((x) => x.id === initialQuestionId.trim());
+    if (idx >= 0) {
+      setStep(idx);
+      appliedInitialQuestionRef.current = true;
+    }
+  }, [initialQuestionId, questions]);
+
   const total = questions.length;
   const q = total > 0 ? questions[Math.min(step, total - 1)] : null;
   const progress = total > 0 ? ((step + 1) / total) * 100 : 0;
-  const needsManualNext = q ? !isAutoAdvanceType(q) : false;
+  const needsManualNext = q
+    ? !isAutoAdvanceType(q) || (isAutoAdvanceType(q) && answerIsComplete(q, answers[q.id]))
+    : false;
 
   const persistAndGoNext = useCallback(
     async (merged: Answers, currentQ: QuestionRow) => {
@@ -254,7 +271,14 @@ export function QuizForm({ version }: { version: number }) {
           {needsManualNext ? (
             <button
               type="button"
-              onClick={() => void nextManual()}
+              onClick={() => {
+                if (!q) return;
+                if (isAutoAdvanceType(q) && answerIsComplete(q, answers[q.id])) {
+                  void persistAndGoNext({ ...answers }, q);
+                } else {
+                  nextManual();
+                }
+              }}
               disabled={saving}
               className="motion-tap min-h-11 rounded-full bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
             >

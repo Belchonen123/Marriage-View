@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { profileCompletenessRatio } from "@/lib/matching/score";
+import { computeOnboardingProgress } from "@/lib/onboarding-next-step";
 import type { ProfileRow } from "@/lib/types";
 import { NextResponse } from "next/server";
 
@@ -30,29 +30,24 @@ export async function GET() {
   const p = profile as ProfileRow;
   const version = p.questionnaire_version;
 
-  const [{ data: qs }, { data: ans }] = await Promise.all([
-    admin.from("questions").select("id").eq("version", version),
+  const [{ data: qsAll }, { data: ans }] = await Promise.all([
+    admin
+      .from("questions")
+      .select("id, required, sort_order")
+      .eq("version", version)
+      .order("sort_order", { ascending: true }),
     admin.from("answers").select("question_id").eq("user_id", user.id),
   ]);
 
-  const totalQ = (qs ?? []).length || 1;
-  const answered = new Set((ans ?? []).map((r) => r.question_id as string)).size;
-  const quizRatio = answered / totalQ;
-  const profRatio = profileCompletenessRatio(p);
-  const photoN = (p.photo_urls ?? []).length;
-  const photoRatio = Math.min(1, photoN / 3);
-
-  const percent = Math.min(
-    100,
-    Math.round(100 * (profRatio * 0.35 + quizRatio * 0.45 + photoRatio * 0.2)),
+  const payload = computeOnboardingProgress(
+    p,
+    (qsAll ?? []) as { id: string; required: boolean }[],
+    ans ?? [],
   );
 
   return NextResponse.json({
-    percent,
-    segments: {
-      profile: Math.round(profRatio * 100),
-      questionnaire: Math.round(quizRatio * 100),
-      photos: Math.round(photoRatio * 100),
-    },
+    percent: payload.percent,
+    segments: payload.segments,
+    nextStep: payload.nextStep,
   });
 }

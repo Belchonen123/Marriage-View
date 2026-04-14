@@ -149,13 +149,12 @@ export default function AdminUsersPage() {
             <tbody>
               {items.map((p) => (
                 <tr key={p.id} className="border-b border-zinc-100 dark:border-zinc-800/80">
-                  <td className="px-3 py-2">{p.display_name || "—"}</td>
                   <td className="px-3 py-2">
                     <Link
                       href={`/admin/users/${p.id}`}
-                      className="text-rose-700 underline-offset-2 hover:underline dark:text-rose-400"
+                      className="font-medium text-rose-700 underline-offset-2 hover:underline dark:text-rose-400"
                     >
-                      View
+                      {p.display_name || "—"}
                     </Link>
                   </td>
                   <td className="px-3 py-2">{p.city ?? "—"}</td>

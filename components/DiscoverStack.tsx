@@ -70,7 +70,9 @@ function emptyDiscoverActionHints(diag: DiscoverDiag | null, verifiedOnly: boole
     hints.push("Widen your age preferences in Profile if they’re very narrow.");
   }
   if (diag && diag.droppedGenderSeeking > 0) {
-    hints.push("Gender / seeking must align both ways — check Profile → seeking.");
+    hints.push(
+      "Discover only shows opposite-gender pairs (your gender vs. who you seek, both ways). For testing, add another onboarded account with the matching pair—for example woman ↔ man.",
+    );
   }
   if (diag && diag.droppedAlreadySwipedOrSelf > 0 && diag.passedFilters === 0) {
     hints.push("You may have passed or liked everyone currently eligible — check back later or adjust filters.");
@@ -156,6 +158,7 @@ export function DiscoverStack() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [tier, setTier] = useState<string>("free");
   const [upsell, setUpsell] = useState<{ title: string; body: string } | null>(null);
+  const [onboardingCta, setOnboardingCta] = useState<{ href: string; label: string } | null>(null);
   const [myBoostEndsAt, setMyBoostEndsAt] = useState<string | null>(null);
   const [boostViews, setBoostViews] = useState<number | null>(null);
   const [displayedMatchPct, setDisplayedMatchPct] = useState(0);

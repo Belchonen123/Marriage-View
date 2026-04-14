@@ -29,6 +29,8 @@ export type ProfileRow = {
   photo_urls: string[];
   questionnaire_version: number;
   onboarding_complete: boolean;
+  /** Migration 018 — admin platform suspension (API-enforced). */
+  admin_suspended?: boolean;
   /** Set by migration 002; used for discover recency ranking. */
   last_active_at?: string | null;
   /** Migration 008 — MVP admin-reviewed photo verification. */
