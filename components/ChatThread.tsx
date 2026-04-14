@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { useToast, type ToastAction } from "@/components/ToastProvider";
 import { createClient } from "@/lib/supabase/client";
 import { setLastReadMessageId } from "@/lib/match-read-storage";
-import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -728,15 +727,8 @@ export function ChatThread({
           <div className="flex h-full min-h-[200px] items-center justify-center px-2">
             <EmptyState
               title="No messages yet"
-              description="Say hi and suggest a time to connect. Deeper topics are easier face to face."
-            >
-              <Link
-                href="/onboarding/profile"
-                className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                Polish your profile
-              </Link>
-            </EmptyState>
+              description="Quick tip: say hello, introduce yourself, and when it feels natural suggest a time for a video date. Keep early messages light—deeper topics often work better on video."
+            />
           </div>
         ) : null}
         {displayItems.map((m, msgIndex) => {

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chunkArray } from "@/lib/chunk-array";
+import { hashQuestionBankForCache } from "@/lib/matching/question-bank-hash";
 import {
   diversifyByScoreTier,
   engagementFactor,
@@ -11,6 +12,7 @@ import {
   recencyBoost,
   scorePair,
   scorePairExplain,
+  type ExplainableScore,
 } from "@/lib/matching/score";
 import type { MatchInsight, ProfileRow, PublicProfile, QuestionRow } from "@/lib/types";
 import { NextResponse } from "next/server";
@@ -111,6 +113,7 @@ export async function GET(req: Request) {
   }
 
   const questions = questionsRaw as QuestionRow[];
+  const questionSnapshotHash = hashQuestionBankForCache(questions);
 
   const { data: myAnswersRows } = await admin
     .from("answers")
@@ -190,7 +193,7 @@ export async function GET(req: Request) {
     .neq("id", user.id)
     .limit(200);
 
-  let pool = (candidates ?? []) as ProfileRow[];
+  const pool = (candidates ?? []) as ProfileRow[];
 
   if (eligibleInboundList.length > 0) {
     const inPool = new Set(pool.map((p) => p.id));
@@ -357,14 +360,80 @@ export async function GET(req: Request) {
     }
   }
 
+  type CompatibilityCacheRow = {
+    candidate_id: string;
+    questionnaire_version: number;
+    question_snapshot_hash: string;
+    total_percent: number;
+    hard_fail: boolean;
+    category_breakdown: ExplainableScore["categoryBreakdown"];
+    reasons: unknown;
+    normalized_score: number;
+  };
+
+  const cacheByCandidate = new Map<string, CompatibilityCacheRow>();
+  if (ids.length > 0) {
+    const { data: cacheRows, error: cacheErr } = await admin
+      .from("discover_compatibility_cache")
+      .select(
+        "candidate_id, questionnaire_version, question_snapshot_hash, total_percent, hard_fail, category_breakdown, reasons, normalized_score",
+      )
+      .eq("viewer_id", user.id)
+      .in("candidate_id", ids);
+    if (cacheErr && debug) {
+      console.warn("discover: discover_compatibility_cache:", cacheErr.message);
+    }
+    for (const row of (cacheRows ?? []) as CompatibilityCacheRow[]) {
+      cacheByCandidate.set(row.candidate_id, row);
+    }
+  }
+
+  const cacheRowsToUpsert: Record<string, unknown>[] = [];
+  let cacheHits = 0;
+  let cacheMisses = 0;
+
   const enriched: EnrichedRow[] = [];
 
   for (const p of filtered) {
     const row = p as ProfileRow;
     const their = byUser[row.id] ?? {};
-    const explain = scorePairExplain(questions, myAnswers, their);
-    const result = scorePair(questions, myAnswers, their);
-    const n = normalizedScore(result);
+    const hit = cacheByCandidate.get(row.id);
+    const hitOk =
+      hit != null &&
+      hit.questionnaire_version === profile.questionnaire_version &&
+      hit.question_snapshot_hash === questionSnapshotHash;
+
+    let explain: ExplainableScore;
+    let n: number;
+
+    if (hitOk && hit) {
+      cacheHits++;
+      const reasonsRaw = hit.reasons;
+      explain = {
+        totalPercent: hit.total_percent,
+        hardFail: hit.hard_fail,
+        dealbreakerPrompt: null,
+        categoryBreakdown: hit.category_breakdown,
+        reasons: Array.isArray(reasonsRaw) ? (reasonsRaw as string[]) : [],
+      };
+      n = hit.normalized_score;
+    } else {
+      cacheMisses++;
+      explain = scorePairExplain(questions, myAnswers, their);
+      const result = scorePair(questions, myAnswers, their);
+      n = normalizedScore(result);
+      cacheRowsToUpsert.push({
+        viewer_id: user.id,
+        candidate_id: row.id,
+        questionnaire_version: profile.questionnaire_version,
+        question_snapshot_hash: questionSnapshotHash,
+        total_percent: explain.totalPercent,
+        hard_fail: explain.hardFail,
+        category_breakdown: explain.categoryBreakdown,
+        reasons: explain.reasons,
+        normalized_score: n,
+      });
+    }
 
     const completeness = profileCompletenessRatio(row);
     const recency = recencyBoost(row.last_active_at ?? null);
@@ -412,6 +481,15 @@ export async function GET(req: Request) {
     });
   }
 
+  if (cacheRowsToUpsert.length > 0) {
+    for (const chunk of chunkArray(cacheRowsToUpsert, 50)) {
+      const { error: upErr } = await admin.from("discover_compatibility_cache").upsert(chunk);
+      if (upErr && debug) {
+        console.warn("discover: cache upsert:", upErr.message);
+      }
+    }
+  }
+
   enriched.sort((a, b) => b.rankScore - a.rankScore);
   const diversified = diversifyByScoreTier(enriched, user.id).slice(0, 40);
 
@@ -440,6 +518,7 @@ export async function GET(req: Request) {
       ? {
           debug: {
             bumpLastActiveOk: !bumpErr,
+            discoverCompatibilityCache: { hits: cacheHits, misses: cacheMisses },
             ranking: diversified.map((d) => ({
               id: d.profile.id,
               displayName: d.profile.display_name,
