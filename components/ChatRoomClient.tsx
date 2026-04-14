@@ -347,6 +347,8 @@ export function ChatRoomClient({
       {videoOpen ? (
         <VideoCall
           matchId={matchId}
+          otherUserId={otherUserId}
+          otherName={otherName}
           onPhaseChange={setVideoPhase}
           onClose={(detail) => {
             setVideoPhase("idle");
