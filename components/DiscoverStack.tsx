@@ -666,7 +666,7 @@ export function DiscoverStack() {
                   {top.profile.birth_year ? (
                     <span className="text-lg font-normal opacity-90">
                       {" "}
-                      · {new Date().getFullYear() - top.profile.birth_year}
+                      · {new Date().getFullYear() - top.profile.birth_year} yrs
                     </span>
                   ) : null}
                 </span>
@@ -713,9 +713,21 @@ export function DiscoverStack() {
                 )}
                 {categoryEntries.length > 0 ? (
                   <div className="mt-3 border-t border-zinc-200/70 pt-3 dark:border-zinc-700/70">
+                    {top.insight.hardFail ? (
+                      <p className="mb-2 text-[11px] leading-snug text-zinc-600 dark:text-zinc-400">
+                        Below is how you align by area on other questions; overall compatibility is 0% because of
+                        the dealbreaker above.
+                      </p>
+                    ) : null}
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                       By topic
                     </p>
+                    {!top.insight.hardFail ? (
+                      <p className="mt-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                        Each row is fit within that topic (questions are weighted differently). Overall match
+                        blends all topics.
+                      </p>
+                    ) : null}
                     <ul className="mt-1 space-y-1 text-[11px] text-zinc-600 dark:text-zinc-400">
                       {categoryEntries.map(([cat, v]) => (
                         <li key={cat} className="flex justify-between gap-2 tabular-nums">

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { DailyPromptDiscoverBanner } from "@/components/DailyPromptDiscoverBanner";
 import { DiscoverSkeleton, DiscoverStack } from "@/components/DiscoverStack";
 import { PremiumFiltersBadge } from "@/components/PremiumFiltersBadge";
 import { redirect } from "next/navigation";
@@ -24,9 +23,6 @@ export default async function DiscoverPage() {
         </p>
         <div className="mt-3">
           <PremiumFiltersBadge />
-        </div>
-        <div className="mt-4">
-          <DailyPromptDiscoverBanner />
         </div>
       </div>
       <Suspense fallback={<DiscoverSkeleton />}>

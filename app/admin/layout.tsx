@@ -5,6 +5,7 @@ const nav = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/matches", label: "Matches" },
+  { href: "/admin/journal", label: "Date reviews" },
   { href: "/admin/questions", label: "Questionnaire" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/flags", label: "Feature flags" },

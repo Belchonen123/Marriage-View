@@ -65,4 +65,30 @@ describe("scorePairExplain", () => {
     expect(resolveCategoryKey("Values & principles")).toBe("values");
     expect(categoryMultiplierForSection("Long-term goals")).toBeGreaterThan(1);
   });
+
+  it("on hardFail, totalPercent is 0 but category breakdown can still show non-zero within-topic percents", () => {
+    const questions: QuestionRow[] = [
+      q({
+        id: "db",
+        prompt: "Want children?",
+        answer_type: "single",
+        dealbreaker: true,
+        options: ["Yes", "No"],
+        section: "Family & children",
+        weight: 1,
+      }),
+      q({
+        id: "ok",
+        prompt: "Exercise weekly?",
+        answer_type: "single",
+        options: ["Often", "Rarely"],
+        section: "Lifestyle & habits",
+        weight: 1,
+      }),
+    ];
+    const ex = scorePairExplain(questions, { db: "Yes", ok: "Often" }, { db: "No", ok: "Often" });
+    expect(ex.hardFail).toBe(true);
+    expect(ex.totalPercent).toBe(0);
+    expect(Object.values(ex.categoryBreakdown).some((c) => c.percent > 0)).toBe(true);
+  });
 });

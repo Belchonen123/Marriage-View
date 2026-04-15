@@ -292,7 +292,9 @@ export function MemberProfileModal({
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-display text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
                     {name}
-                    {age != null ? <span className="text-lg font-normal text-zinc-600 dark:text-zinc-400"> · {age}</span> : null}
+                    {age != null ? (
+                      <span className="text-lg font-normal text-zinc-600 dark:text-zinc-400"> · {age} yrs</span>
+                    ) : null}
                   </h3>
                   {p.photo_verified ? (
                     <span className="rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
@@ -377,7 +379,19 @@ export function MemberProfileModal({
                   )}
                   {categoryEntries.length > 0 ? (
                     <div className="mt-3 border-t border-zinc-200/70 pt-2 dark:border-zinc-700/70">
+                      {insight.hardFail ? (
+                        <p className="mb-2 text-[11px] leading-snug text-zinc-600 dark:text-zinc-400">
+                          Below is how you align by area on other questions; overall compatibility is 0% because
+                          of the dealbreaker above.
+                        </p>
+                      ) : null}
                       <p className="text-[10px] font-semibold uppercase text-zinc-500">By topic</p>
+                      {!insight.hardFail ? (
+                        <p className="mt-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                          Each row is fit within that topic (questions are weighted differently). Overall match
+                          blends all topics.
+                        </p>
+                      ) : null}
                       <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
                         {categoryEntries.map(([cat, v]) => (
                           <li key={cat} className="flex justify-between gap-2 tabular-nums">
