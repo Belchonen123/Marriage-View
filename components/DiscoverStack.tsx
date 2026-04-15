@@ -161,7 +161,6 @@ export function DiscoverStack() {
   const [onboardingCta, setOnboardingCta] = useState<{ href: string; label: string } | null>(null);
   const [myBoostEndsAt, setMyBoostEndsAt] = useState<string | null>(null);
   const [boostViews, setBoostViews] = useState<number | null>(null);
-  const [displayedMatchPct, setDisplayedMatchPct] = useState(0);
   const impressionSentRef = useRef<string | null>(null);
   const [memberProfileOpen, setMemberProfileOpen] = useState(false);
 
@@ -226,7 +225,6 @@ export function DiscoverStack() {
   }, [myBoostEndsAt]);
 
   const cardTopId = items[0]?.profile.id;
-  const cardInsightPct = items[0]?.insight.totalPercent;
 
   useEffect(() => {
     if (!cardTopId) return;
@@ -238,25 +236,6 @@ export function DiscoverStack() {
       body: JSON.stringify({ profileUserId: cardTopId }),
     });
   }, [cardTopId]);
-
-  useEffect(() => {
-    const target = cardInsightPct != null ? Math.round(cardInsightPct) : 0;
-    if (reduceMotion) {
-      setDisplayedMatchPct(target);
-      return;
-    }
-    setDisplayedMatchPct(0);
-    const start = Date.now();
-    const dur = 850;
-    let raf = 0;
-    const step = () => {
-      const t = Math.min(1, (Date.now() - start) / dur);
-      setDisplayedMatchPct(Math.round(target * t));
-      if (t < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [cardInsightPct, cardTopId, reduceMotion]);
 
   const top = items[0];
   const nextPeek = items[1];
@@ -651,13 +630,6 @@ export function DiscoverStack() {
               >
                 Full profile
               </button>
-              <div
-                className="animate-score-pop flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 border-white/30 bg-black/35 text-white shadow-lg backdrop-blur-md"
-                title="Compatibility"
-              >
-                <span className="text-lg font-bold leading-none tabular-nums">{displayedMatchPct}</span>
-                <span className="text-[0.65rem] font-medium uppercase tracking-wide opacity-90">match</span>
-              </div>
             </div>
             <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[2] p-4 text-white">
               <h2 className="flex flex-wrap items-center gap-2 font-display text-2xl font-semibold tracking-tight drop-shadow-md">

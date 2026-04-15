@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CUSTOM_CITY_VALUE, METRO_OPTIONS } from "@/lib/location/metro-options";
 import { reverseGeocodeLatLng } from "@/lib/location/reverse-geocode";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 const GENDER_OPTIONS = ["woman", "man"] as const;
@@ -20,7 +21,35 @@ function seekingForGender(g: string): "man" | "woman" | null {
   return null;
 }
 
+const AGE_MIN_ALLOWED = 18;
+const AGE_MAX_ALLOWED = 99;
+
+function normalizeAgeFromDb(value: number | null | undefined, fallback: number): number {
+  if (value == null || !Number.isFinite(value) || value === 0) return fallback;
+  const n = Math.round(value);
+  if (n < AGE_MIN_ALLOWED || n > AGE_MAX_ALLOWED) return fallback;
+  return n;
+}
+
+function normalizePartnerAgesFromDb(
+  ageMinRaw: number | null | undefined,
+  ageMaxRaw: number | null | undefined,
+): { ageMin: number; ageMax: number } {
+  let ageMin = normalizeAgeFromDb(ageMinRaw, 22);
+  let ageMax = normalizeAgeFromDb(ageMaxRaw, 45);
+  if (ageMin > ageMax) {
+    ageMin = 22;
+    ageMax = 45;
+  }
+  return { ageMin, ageMax };
+}
+
+function kmToMiRounded(km: number): number {
+  return Math.round(km * 0.621371);
+}
+
 export default function OnboardingProfilePage() {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [displayName, setDisplayName] = useState("");
   const [birthYear, setBirthYear] = useState<number | "">("");
@@ -28,9 +57,9 @@ export default function OnboardingProfilePage() {
   const [cityChoice, setCityChoice] = useState<string>("");
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState<"" | "woman" | "man">("");
-  const [ageMin, setAgeMin] = useState(22);
-  const [ageMax, setAgeMax] = useState(45);
-  const [maxKm, setMaxKm] = useState(200);
+  const [ageMin, setAgeMin] = useState<number | "">(22);
+  const [ageMax, setAgeMax] = useState<number | "">(45);
+  const [maxKm, setMaxKm] = useState<number | "">(200);
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -55,9 +84,15 @@ export default function OnboardingProfilePage() {
         else setCityChoice("");
         setBio(p.bio ?? "");
         setGender(normalizeGender(p.gender));
-        setAgeMin(p.age_min ?? 22);
-        setAgeMax(p.age_max ?? 45);
-        setMaxKm(p.max_distance_km ?? 200);
+        const ages = normalizePartnerAgesFromDb(p.age_min as number | null, p.age_max as number | null);
+        setAgeMin(ages.ageMin);
+        setAgeMax(ages.ageMax);
+        const rawKm = p.max_distance_km as number | null | undefined;
+        const km =
+          rawKm == null || !Number.isFinite(rawKm) || rawKm < 1
+            ? 200
+            : Math.min(20_000, Math.max(1, Math.round(rawKm)));
+        setMaxKm(km);
         setLat(p.latitude != null ? String(p.latitude) : "");
         setLng(p.longitude != null ? String(p.longitude) : "");
       }
@@ -146,6 +181,34 @@ export default function OnboardingProfilePage() {
     }
     const seeking = gender === "woman" ? "man" : "woman";
 
+    if (ageMin === "" || ageMax === "") {
+      setMsg("Enter both minimum and maximum age for who you’re open to meeting.");
+      return;
+    }
+    let ageMinVal = Math.round(Number(ageMin));
+    let ageMaxVal = Math.round(Number(ageMax));
+    if (!Number.isFinite(ageMinVal) || !Number.isFinite(ageMaxVal)) {
+      setMsg("Age preferences must be valid numbers.");
+      return;
+    }
+    ageMinVal = Math.min(AGE_MAX_ALLOWED, Math.max(AGE_MIN_ALLOWED, ageMinVal));
+    ageMaxVal = Math.min(AGE_MAX_ALLOWED, Math.max(AGE_MIN_ALLOWED, ageMaxVal));
+    if (ageMinVal > ageMaxVal) {
+      setMsg("Minimum age can’t be higher than maximum age.");
+      return;
+    }
+
+    if (maxKm === "") {
+      setMsg("Enter a maximum distance (in kilometers).");
+      return;
+    }
+    let maxKmVal = Math.round(Number(maxKm));
+    if (!Number.isFinite(maxKmVal) || maxKmVal < 1) {
+      setMsg("Maximum distance must be at least 1 km.");
+      return;
+    }
+    maxKmVal = Math.min(20_000, maxKmVal);
+
     const { data, error } = await supabase
       .from("profiles")
       .upsert(
@@ -157,9 +220,9 @@ export default function OnboardingProfilePage() {
           bio: bio.trim(),
           gender,
           seeking,
-          age_min: ageMin,
-          age_max: ageMax,
-          max_distance_km: maxKm,
+          age_min: ageMinVal,
+          age_max: ageMaxVal,
+          max_distance_km: maxKmVal,
           latitude: Number.isFinite(latitude) ? latitude : null,
           longitude: Number.isFinite(longitude) ? longitude : null,
           updated_at: new Date().toISOString(),
@@ -179,7 +242,7 @@ export default function OnboardingProfilePage() {
       );
       return;
     }
-    setMsg("Saved.");
+    router.push("/onboarding/quiz");
   }
 
   if (loading) {
@@ -200,6 +263,8 @@ export default function OnboardingProfilePage() {
     "motion-tap w-full rounded-full bg-rose-700 px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-rose-800 sm:w-auto sm:py-2";
 
   const derivedSeeking = seekingForGender(gender);
+  const maxKmForDisplay =
+    typeof maxKm === "number" && Number.isFinite(maxKm) && maxKm >= 1 ? maxKm : null;
 
   return (
     <div className="mx-auto max-w-lg space-y-6 pb-28 sm:pb-6">
@@ -347,31 +412,44 @@ export default function OnboardingProfilePage() {
           <Field label="Age min (preference)">
             <input
               type="number"
+              min={AGE_MIN_ALLOWED}
+              max={AGE_MAX_ALLOWED}
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-              value={ageMin}
-              onChange={(e) => setAgeMin(Number(e.target.value))}
+              value={ageMin === "" ? "" : ageMin}
+              onChange={(e) => {
+                const v = e.target.value;
+                setAgeMin(v === "" ? "" : Number(v));
+              }}
             />
           </Field>
           <Field label="Age max (preference)">
             <input
               type="number"
+              min={AGE_MIN_ALLOWED}
+              max={AGE_MAX_ALLOWED}
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-              value={ageMax}
-              onChange={(e) => setAgeMax(Number(e.target.value))}
+              value={ageMax === "" ? "" : ageMax}
+              onChange={(e) => {
+                const v = e.target.value;
+                setAgeMax(v === "" ? "" : Number(v));
+              }}
             />
           </Field>
         </div>
         <Field
-          label="Max distance (km)"
-          hint="Used when you have a precise location and the other person does too; otherwise discovery does not filter by distance."
+          label={`Max distance (km)${maxKmForDisplay != null ? ` — ≈ ${kmToMiRounded(maxKmForDisplay)} mi` : ""}`}
+          hint="Stored in kilometers (~miles shown for reference). Used when you and the other person both have a precise location; otherwise discovery may not filter by distance."
         >
           <input
             type="number"
             min={1}
             max={20000}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-            value={maxKm}
-            onChange={(e) => setMaxKm(Number(e.target.value))}
+            value={maxKm === "" ? "" : maxKm}
+            onChange={(e) => {
+              const v = e.target.value;
+              setMaxKm(v === "" ? "" : Number(v));
+            }}
           />
         </Field>
         <div className="hidden sm:block">

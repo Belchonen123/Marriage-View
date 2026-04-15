@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import type { AnswerType, QuestionRow } from "@/lib/types";
 import { useToast } from "@/components/ToastProvider";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 type Answers = Record<string, unknown>;
 
@@ -45,6 +45,7 @@ export function QuizForm({
   const [step, setStep] = useState(0);
   const advancingRef = useRef(false);
   const appliedInitialQuestionRef = useRef(false);
+  const questionHeadingId = useId();
 
   useEffect(() => {
     let cancelled = false;
@@ -225,16 +226,25 @@ export function QuizForm({
         </div>
       </div>
 
+      <h2
+        id={questionHeadingId}
+        className="mb-3 px-0.5 font-display text-lg font-semibold leading-snug tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-xl"
+      >
+        {q.prompt}
+        {q.required ? <span className="text-[var(--accent)]"> *</span> : null}
+      </h2>
+
       <fieldset
         className="card-surface motion-card mb-24 animate-card-in border border-zinc-200/80 p-5 dark:border-zinc-700/80 sm:p-6"
         disabled={saving}
+        aria-labelledby={questionHeadingId}
       >
-        <legend className="px-1 font-display text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        <legend className="sr-only">
           {q.prompt}
-          {q.required ? <span className="text-[var(--accent)]"> *</span> : null}
+          {q.required ? " (required)" : ""}
         </legend>
         {isAutoAdvanceType(q) ? (
-          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Tap an option to go to the next question{q.required ? "" : ", or skip below"}.
           </p>
         ) : null}
