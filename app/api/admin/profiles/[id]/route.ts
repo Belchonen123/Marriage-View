@@ -57,11 +57,12 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (pErr && isMissingAdminSuspendedColumn(pErr)) {
     const retry = await admin.from("profiles").select(PROFILE_SELECT_WITHOUT_SUSPENSION).eq("id", id).maybeSingle();
     if (!retry.error && retry.data) {
-      profile = { ...retry.data, admin_suspended: false };
+      const row = retry.data as unknown as Record<string, unknown>;
+      profile = { ...row, admin_suspended: false } as NonNullable<(typeof profRes)["data"]>;
       pErr = null;
     } else {
-      profile = retry.data;
       pErr = retry.error;
+      profile = retry.error ? null : (retry.data as (typeof profRes)["data"]);
     }
   }
 

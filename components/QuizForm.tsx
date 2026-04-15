@@ -44,6 +44,7 @@ export function QuizForm({
   const [message, setMessage] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const advancingRef = useRef(false);
+  const appliedInitialQuestionRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
