@@ -11,6 +11,7 @@ import {
   setPushDesired,
   setSoundEnabled,
 } from "@/lib/notification-prefs";
+import { playSoundTest } from "@/lib/call-ringtone";
 import { PhoneVerificationSection } from "@/components/PhoneVerificationSection";
 import { PhotoVerificationSection } from "@/components/PhotoVerificationSection";
 import { DiscoverSelfPreview } from "@/components/DiscoverSelfPreview";
@@ -441,19 +442,29 @@ export default function SettingsPage() {
           </a>
           .
         </p>
-        <label className="flex cursor-pointer items-center gap-3 text-sm text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            className="input-focus h-4 w-4 rounded border-zinc-300"
-            checked={soundOn}
-            onChange={(e) => {
-              const on = e.target.checked;
-              setSoundEnabled(on);
-              setSoundOn(on);
-            }}
-          />
-          In-app sounds (calls &amp; message ping)
-        </label>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <label className="flex cursor-pointer items-center gap-3 text-sm text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              className="input-focus h-4 w-4 rounded border-zinc-300"
+              checked={soundOn}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setSoundEnabled(on);
+                setSoundOn(on);
+              }}
+            />
+            In-app sounds (calls &amp; message ping)
+          </label>
+          <button
+            type="button"
+            onClick={() => playSoundTest()}
+            disabled={!soundOn}
+            className="rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            🔊 Test sound
+          </button>
+        </div>
         <label className="flex cursor-pointer items-center gap-3 text-sm text-zinc-700 dark:text-zinc-300">
           <input
             type="checkbox"
@@ -506,6 +517,46 @@ export default function SettingsPage() {
             Send test notification
           </button>
         </div>
+
+        <details className="rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-3 text-xs dark:border-zinc-700/80 dark:bg-zinc-900/30">
+          <summary className="cursor-pointer font-semibold text-zinc-700 dark:text-zinc-200">
+            Want notifications to ring louder when the app is closed?
+          </summary>
+          <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+            When the app is closed, your phone or computer uses its own notification sound — Marriage View
+            can&apos;t override that. Here&apos;s how to make it louder on each platform:
+          </p>
+          <div className="mt-3 space-y-3 text-zinc-700 dark:text-zinc-300">
+            <div>
+              <p className="font-semibold">📱 Android (Chrome)</p>
+              <ol className="ml-5 mt-1 list-decimal space-y-0.5 text-zinc-600 dark:text-zinc-400">
+                <li>Long-press a Marriage View notification.</li>
+                <li>Tap the gear ⚙️ that appears.</li>
+                <li>Set importance to <strong>Urgent</strong> (or High).</li>
+                <li>Tap <strong>Sound</strong> and pick a louder ringtone.</li>
+              </ol>
+            </div>
+            <div>
+              <p className="font-semibold">🍎 iPhone (Marriage View installed to Home Screen)</p>
+              <ol className="ml-5 mt-1 list-decimal space-y-0.5 text-zinc-600 dark:text-zinc-400">
+                <li>iOS Settings → <strong>Notifications</strong> → Marriage View.</li>
+                <li>Enable <strong>Sounds</strong> and <strong>Time-Sensitive Notifications</strong>.</li>
+                <li>Pick a louder sound under <strong>Sound</strong> if available.</li>
+              </ol>
+              <p className="mt-1 text-zinc-500">
+                For true phone-style ringing, install Marriage View to your Home Screen first
+                (Safari → Share → Add to Home Screen).
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold">💻 Desktop (Mac / Windows)</p>
+              <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                Notification sounds come from your OS. Make sure your system sound isn&apos;t muted and
+                that Do Not Disturb is off when you want to be reachable.
+              </p>
+            </div>
+          </div>
+        </details>
       </section>
 
       <PhoneVerificationSection />
