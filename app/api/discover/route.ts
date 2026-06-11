@@ -475,7 +475,10 @@ export async function GET(req: Request) {
       journalRankingMult;
     if (boostedIds.has(row.id)) rankScore *= 1.1;
     if (prioritizeInbound && inboundEligibleIds.has(row.id)) rankScore *= 1.35;
-    if (explain.hardFail) rankScore = Math.min(rankScore, 0.02);
+
+    // Dealbreaker mismatch (e.g. Jewish/Shabbat/kosher answered differently):
+    // do not show the candidate at all. Used to be demoted; now filtered.
+    if (explain.hardFail) continue;
 
     const insight: MatchInsight = {
       totalPercent: explain.totalPercent,
