@@ -88,3 +88,56 @@ export async function sendSms(toE164: string, body: string): Promise<void> {
     console.warn("[twilio] sendSms failed:", e instanceof Error ? e.message : e);
   }
 }
+
+/**
+ * Fire-and-forget WhatsApp message via Twilio. No-op when not configured.
+ *
+ * In the Twilio WhatsApp Sandbox the recipient must have texted
+ * "join <sandbox-code>" to TWILIO_WHATSAPP_FROM before this works.
+ * In production with an approved sender, business-initiated messages
+ * outside the 24h session window require a pre-approved Content Template
+ * (pass contentSid + contentVariables for that flow).
+ */
+export async function sendWhatsApp(
+  toE164: string,
+  body: string,
+  template?: { contentSid: string; contentVariables?: Record<string, string> },
+): Promise<void> {
+  const c = client();
+  const from = process.env.TWILIO_WHATSAPP_FROM;
+  if (!c || !from) return;
+  const fromAddress = from.startsWith("whatsapp:") ? from : `whatsapp:${from}`;
+  const toAddress = toE164.startsWith("whatsapp:") ? toE164 : `whatsapp:${toE164}`;
+  try {
+    if (template?.contentSid) {
+      await c.messages.create({
+        to: toAddress,
+        from: fromAddress,
+        contentSid: template.contentSid,
+        contentVariables: template.contentVariables
+          ? JSON.stringify(template.contentVariables)
+          : undefined,
+      });
+    } else {
+      await c.messages.create({ to: toAddress, from: fromAddress, body });
+    }
+  } catch (e) {
+    console.warn("[twilio] sendWhatsApp failed:", e instanceof Error ? e.message : e);
+  }
+}
+
+export type AlertChannel = "sms" | "whatsapp" | "none";
+
+/** Dispatch an out-of-band alert via the user's preferred channel. */
+export async function sendAlert(
+  phoneE164: string,
+  channel: AlertChannel,
+  body: string,
+): Promise<void> {
+  if (channel === "none") return;
+  if (channel === "whatsapp") {
+    await sendWhatsApp(phoneE164, body);
+    return;
+  }
+  await sendSms(phoneE164, body);
+}

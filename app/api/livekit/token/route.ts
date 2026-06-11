@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPairBlocked } from "@/lib/pair-blocked";
 import { sendWebPushToUser } from "@/lib/push-notify";
-import { sendSms } from "@/lib/twilio";
+import { sendAlert, type AlertChannel } from "@/lib/twilio";
 import { AccessToken } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
 
@@ -101,16 +101,18 @@ export async function POST(req: Request) {
     void (async () => {
       const { data: calleeRow } = await admin
         .from("profiles")
-        .select("phone_number, phone_verified_at")
+        .select("phone_number, phone_verified_at, preferred_alert_channel")
         .eq("id", calleeId)
         .maybeSingle();
       const phone = calleeRow?.phone_number as string | null;
       const verified = Boolean(calleeRow?.phone_verified_at);
-      if (!phone || !verified) return;
+      const channel = ((calleeRow?.preferred_alert_channel as string | null) ?? "sms") as AlertChannel;
+      if (!phone || !verified || channel === "none") return;
       const appUrl =
         process.env.NEXT_PUBLIC_APP_URL ?? "https://www.marriageview.app";
-      await sendSms(
+      await sendAlert(
         phone,
+        channel,
         `${callerDisplayName} is starting a video date on Marriage View. Tap to join: ${appUrl}/chat/${matchId}?video=1`,
       );
     })().catch(() => {
