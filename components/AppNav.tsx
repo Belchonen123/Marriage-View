@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandLockup } from "@/components/BrandLockup";
 import { NavNotifications } from "@/components/NavNotifications";
 import { getLastReadMessageId } from "@/lib/match-read-storage";
 import Link from "next/link";
@@ -143,12 +144,7 @@ export function AppNav() {
   return (
     <header className="nav-shell sticky top-0 z-40 overflow-visible border-b border-rose-900/[0.08] bg-[var(--surface)] backdrop-blur-xl dark:border-rose-100/[0.06]">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3.5 pt-[max(0.875rem,env(safe-area-inset-top))]">
-        <Link
-          href="/"
-          className="input-focus shrink-0 font-display text-lg font-semibold tracking-tight text-[var(--accent)] rounded-md transition-opacity hover:opacity-90"
-        >
-          Marriage View
-        </Link>
+        <BrandLockup size="sm" asLink className="shrink-0" />
 
         {/* Desktop / tablet nav */}
         <nav className="hidden min-w-0 flex-1 items-center justify-end gap-1 sm:flex sm:flex-wrap sm:gap-2">

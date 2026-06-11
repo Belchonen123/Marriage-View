@@ -1,6 +1,7 @@
 "use client";
 
 import { BrandCard } from "@/components/BrandCard";
+import { BrandLockup } from "@/components/BrandLockup";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import {
@@ -107,12 +108,7 @@ export default function LoginPage() {
           <div className="absolute bottom-[15%] right-[15%] h-48 w-48 rounded-full bg-[var(--mesh-3)] blur-3xl" />
         </div>
         <div className="relative max-w-md">
-          <p className="font-display text-sm font-medium uppercase tracking-[0.2em] text-[var(--accent)]">
-            Marriage View
-          </p>
-          <p className="mt-1 text-xs font-medium tracking-wide text-zinc-500 dark:text-zinc-400">
-            The Video Dating Platform
-          </p>
+          <BrandLockup size="xl" showTagline />
           <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 lg:text-4xl">
             Dating that starts with intention
           </h1>

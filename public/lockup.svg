@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 96" role="img" aria-label="Marriage View">
+  <style>
+    .word { font-family: "Fraunces", "Georgia", serif; font-weight: 600; }
+  </style>
+  <defs>
+    <linearGradient id="gold-lockup" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E6C152"/>
+      <stop offset="1" stop-color="#B5912A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Compact logo mark on the left -->
+  <g transform="translate(8, 8) scale(0.16)">
+    <!-- Ring -->
+    <g transform="translate(256, 96)">
+      <ellipse cx="0" cy="18" rx="60" ry="14" fill="none" stroke="url(#gold-lockup)" stroke-width="10"/>
+      <path d="M -18 -2 L 0 -42 L 18 -2 L 0 12 Z" fill="url(#gold-lockup)"/>
+    </g>
+    <!-- Heart halves -->
+    <path d="M256 432 C 100 322, 64 232, 64 168 C 64 116, 108 80, 156 80 C 200 80, 240 108, 256 152 L 256 432 Z" fill="#7A0F2E"/>
+    <path d="M256 432 C 412 322, 448 232, 448 168 C 448 116, 404 80, 356 80 C 312 80, 272 108, 256 152 L 256 432 Z" fill="#E7A5A5"/>
+    <!-- Camera -->
+    <g transform="translate(256, 260)">
+      <rect x="-50" y="-30" width="80" height="60" rx="10" fill="url(#gold-lockup)"/>
+      <path d="M 30 -18 L 56 -32 L 56 32 L 30 18 Z" fill="url(#gold-lockup)"/>
+      <circle cx="-12" cy="0" r="14" fill="#5C0822" opacity="0.75"/>
+    </g>
+  </g>
+
+  <!-- Wordmark -->
+  <text class="word" x="100" y="62" font-size="48" fill="#7A0F2E">Marriage</text>
+  <text class="word" x="290" y="62" font-size="48" fill="#D4AF37">View</text>
+</svg>

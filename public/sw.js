@@ -1,5 +1,5 @@
 /* global self, caches, fetch, URL, Response */
-const VERSION = "mv-v3-png-icons";
+const VERSION = "mv-v4-brand-logo";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const IMAGE_CACHE = `images-${VERSION}`;
