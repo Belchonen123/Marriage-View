@@ -48,11 +48,12 @@ export function NavNotifications() {
     if (!el) return;
     const r = el.getBoundingClientRect();
     const width = Math.min(320, window.innerWidth - 16);
-    setPanelStyle({
-      top: r.bottom + 8,
-      right: Math.max(8, window.innerWidth - r.right),
-      width,
-    });
+    // Anchor to the right of the button, but clamp so the panel never
+    // overflows either edge of the viewport on narrow screens.
+    const idealRight = window.innerWidth - r.right;
+    const maxRight = Math.max(8, window.innerWidth - 8 - width);
+    const right = Math.min(maxRight, Math.max(8, idealRight));
+    setPanelStyle({ top: r.bottom + 8, right, width });
   }, []);
 
   useEffect(() => {

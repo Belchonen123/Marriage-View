@@ -57,14 +57,14 @@ export function AppNav() {
 
   return (
     <header className="nav-shell sticky top-0 z-40 overflow-visible border-b border-rose-900/[0.08] bg-[var(--surface)] backdrop-blur-xl dark:border-rose-100/[0.06]">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3.5 pt-[max(0.875rem,env(safe-area-inset-top))]">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3.5 pt-[max(0.875rem,env(safe-area-inset-top))]">
         <Link
           href="/"
-          className="input-focus font-display text-lg font-semibold tracking-tight text-[var(--accent)] rounded-md transition-opacity hover:opacity-90"
+          className="input-focus shrink-0 font-display text-lg font-semibold tracking-tight text-[var(--accent)] rounded-md transition-opacity hover:opacity-90"
         >
           Marriage View
         </Link>
-        <nav className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
+        <nav className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto sm:flex-wrap sm:gap-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <NavNotifications />
           {links.map((l) => {
             const active =
@@ -76,7 +76,7 @@ export function AppNav() {
                 key={l.href}
                 href={l.href}
                 aria-current={active ? "page" : undefined}
-                className={`input-focus rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`input-focus shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                   active
                     ? "bg-[var(--accent-muted)] text-[var(--accent)] dark:text-[var(--accent)]"
                     : "text-zinc-600 hover:bg-black/[0.04] hover:text-rose-800 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-rose-200"
