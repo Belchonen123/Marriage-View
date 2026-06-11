@@ -48,21 +48,33 @@ export function ProfilePhotosSection({
         data: { user },
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
-      const { data: p, error: selErr } = await supabase
-        .from("profiles")
-        .select("photo_urls")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (cancelled) return;
-      if (selErr) {
-        setMsg(selErr.message);
-        setLoading(false);
-        return;
+      // Photos live in a private bucket; ask the server for signed URLs
+      // instead of reading the public-URL strings stored in profiles.photo_urls.
+      try {
+        const res = await fetch("/api/photos/sign", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userIds: [user.id] }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          photos?: Record<string, string[]>;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok) {
+          setMsg(data.error ?? "Could not load photos.");
+          setLoading(false);
+          return;
+        }
+        const initial = normalizePhotoUrls(data.photos?.[user.id] ?? []);
+        setUrls(initial);
+        onPhotosChangeRef.current?.(initial);
+      } catch (e) {
+        if (!cancelled) setMsg(e instanceof Error ? e.message : "Could not load photos.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      const initial = normalizePhotoUrls(p?.photo_urls);
-      setUrls(initial);
-      onPhotosChangeRef.current?.(initial);
-      setLoading(false);
     })();
     return () => {
       cancelled = true;

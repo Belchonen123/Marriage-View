@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signProfilePhotoUrlsBatch } from "@/lib/photos-sign-server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserTier } from "@/lib/entitlements";
 import { NextResponse } from "next/server";
@@ -122,13 +123,21 @@ export async function GET() {
     }
   }
 
+  const photosByUserId = new Map<string, string[]>();
+  for (const id of eligible) {
+    const p = byId.get(id);
+    const first = ((p?.photo_urls as string[]) ?? [])[0];
+    photosByUserId.set(id, first ? [first] : []);
+  }
+  const signed = await signProfilePhotoUrlsBatch(admin, photosByUserId);
+
   const items: InboundItem[] = eligible.map((id) => {
     const p = byId.get(id);
     return {
       userId: id,
       display_name: (p?.display_name as string) || "Member",
       city: (p?.city as string) ?? null,
-      photoUrl: ((p?.photo_urls as string[]) ?? [])[0] ?? null,
+      photoUrl: (signed.get(id) ?? [])[0] ?? null,
       likedAt: likeAtByUser.get(id) ?? null,
       onboarding_complete: Boolean(p?.onboarding_complete),
     };

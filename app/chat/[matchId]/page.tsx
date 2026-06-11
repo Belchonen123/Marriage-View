@@ -1,4 +1,6 @@
 import { ChatRoomClient } from "@/components/ChatRoomClient";
+import { signProfilePhotoUrls } from "@/lib/photos-sign-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -34,11 +36,19 @@ export default async function ChatPage({
     .maybeSingle();
 
   const urls = (other?.photo_urls as string[] | null) ?? [];
+  let signedFirstPhoto: string | null = null;
+  try {
+    const admin = createAdminClient();
+    const signed = await signProfilePhotoUrls(admin, urls.slice(0, 1));
+    signedFirstPhoto = signed[0] ?? null;
+  } catch {
+    /* admin not configured — leave photo null */
+  }
   const otherPreview = {
     city: (other?.city as string | null) ?? null,
     birthYear: (other?.birth_year as number | null) ?? null,
     bio: (other?.bio as string | null)?.trim() || null,
-    photoUrl: urls[0] ?? null,
+    photoUrl: signedFirstPhoto,
     photoVerified: other?.photo_verification_status === "verified",
   };
 

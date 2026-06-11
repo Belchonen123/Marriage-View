@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { insertAdminAudit } from "@/lib/admin-audit";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getUserTier } from "@/lib/entitlements";
+import { signProfilePhotoUrls } from "@/lib/photos-sign-server";
 import { isUuid } from "@/lib/uuid";
 import { NextResponse } from "next/server";
 
@@ -123,8 +124,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
   const effectiveTier = await getUserTier(admin, id);
 
+  // Sign photos + verification selfie since the bucket is now private.
+  const profileRecord = profile as unknown as Record<string, unknown>;
+  const photoUrlsRaw = (profileRecord.photo_urls as string[] | null) ?? [];
+  const signedPhotoUrls = await signProfilePhotoUrls(admin, photoUrlsRaw);
+  const selfiePath = (profileRecord.verification_selfie_path as string | null) ?? null;
+  const [signedSelfie] = selfiePath
+    ? await signProfilePhotoUrls(admin, [selfiePath])
+    : [null];
+
   return NextResponse.json({
-    profile,
+    profile: {
+      ...profileRecord,
+      photo_urls: signedPhotoUrls,
+      verification_selfie_signed_url: signedSelfie ?? null,
+    },
     entitlement: ent ?? null,
     effectiveTier,
     matches,

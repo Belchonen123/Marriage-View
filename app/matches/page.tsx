@@ -1,6 +1,8 @@
 import { EmptyState } from "@/components/EmptyState";
 import { InboundLikesSection } from "@/components/InboundLikesSection";
 import { MatchesList, type MatchPreview } from "@/components/MatchesList";
+import { signProfilePhotoUrlsBatch } from "@/lib/photos-sign-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -72,7 +74,8 @@ export default async function MatchesPage() {
         matchId,
         otherId: oid,
         otherName: p?.display_name ?? "Match",
-        photoUrl: urls[0] ?? null,
+        photoUrl: urls[0] ?? null, // signed below after the loop
+
         lastMessage: last
           ? {
               id: last.id,
@@ -91,6 +94,27 @@ export default async function MatchesPage() {
     if (tb !== ta) return tb - ta;
     return a.preview.matchId.localeCompare(b.preview.matchId);
   });
+
+  // Sign photo URLs server-side for the private bucket.
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    admin = null;
+  }
+  if (admin) {
+    const photosByUserId = new Map<string, string[]>();
+    for (const r of rows) {
+      if (r.preview.photoUrl) {
+        photosByUserId.set(r.preview.otherId, [r.preview.photoUrl]);
+      }
+    }
+    const signed = await signProfilePhotoUrlsBatch(admin, photosByUserId);
+    for (const r of rows) {
+      const s = signed.get(r.preview.otherId);
+      r.preview.photoUrl = s && s[0] ? s[0] : null;
+    }
+  }
 
   const previews = rows.map((r) => r.preview);
 

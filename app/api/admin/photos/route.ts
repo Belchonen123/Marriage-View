@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signProfilePhotoUrlsBatch } from "@/lib/photos-sign-server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { NextResponse } from "next/server";
 
@@ -88,5 +89,14 @@ export async function GET(req: Request) {
     items = items.filter((p) => p.photo_urls.length === 0);
   }
 
-  return NextResponse.json({ items, total: count ?? items.length });
+  // Sign all photo URLs — private bucket; admin still needs viewable URLs.
+  const byUserId = new Map<string, string[]>();
+  for (const it of items) byUserId.set(it.id, it.photo_urls);
+  const signed = await signProfilePhotoUrlsBatch(admin, byUserId);
+  const signedItems = items.map((it) => ({
+    ...it,
+    photo_urls: signed.get(it.id) ?? [],
+  }));
+
+  return NextResponse.json({ items: signedItems, total: count ?? signedItems.length });
 }

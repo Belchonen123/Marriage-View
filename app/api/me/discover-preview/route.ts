@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signProfilePhotoUrls } from "@/lib/photos-sign-server";
 import { createClient } from "@/lib/supabase/server";
 import type { ProfileRow, PublicProfile } from "@/lib/types";
 import { NextResponse } from "next/server";
@@ -51,7 +52,10 @@ export async function GET() {
     city: p.city,
     bio: p.bio ?? "",
     gender: p.gender,
-    photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls : [],
+    photo_urls: await signProfilePhotoUrls(
+      admin,
+      Array.isArray(p.photo_urls) ? p.photo_urls : [],
+    ),
     photo_verified: p.photo_verification_status === "verified",
   };
 

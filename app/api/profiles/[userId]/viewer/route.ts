@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { signProfilePhotoUrls } from "@/lib/photos-sign-server";
 import { viewerIcebreakerSnippets } from "@/lib/icebreaker-answers";
 import { isAdminSuspended } from "@/lib/profile-suspension";
 import type { ProfileRow, ViewerProfile } from "@/lib/types";
@@ -88,7 +89,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ userId: string 
     age_min: p.age_min,
     age_max: p.age_max,
     max_distance_km: p.max_distance_km,
-    photo_urls: Array.isArray(p.photo_urls) ? p.photo_urls.filter((u): u is string => typeof u === "string") : [],
+    photo_urls: await signProfilePhotoUrls(
+      admin,
+      Array.isArray(p.photo_urls)
+        ? p.photo_urls.filter((u): u is string => typeof u === "string")
+        : [],
+    ),
     photo_verified: p.photo_verification_status === "verified",
     questionnaire_version: p.questionnaire_version,
     ...(snippets.length > 0 ? { icebreaker_snippets: snippets } : {}),

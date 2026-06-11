@@ -1,7 +1,6 @@
 "use client";
 
 import { adminApiFetch } from "@/lib/admin-api-fetch";
-import { profilePhotoPublicUrl } from "@/lib/public-storage-url";
 import { AdminActivitySection } from "@/app/admin/users/[id]/activity-section";
 import { AdminJournalSection } from "@/app/admin/users/[id]/journal-section";
 import { AdminMessagesSection } from "@/app/admin/users/[id]/messages-section";
@@ -29,6 +28,7 @@ type ProfileDetail = {
   photo_verification_status: string;
   photo_verified_at: string | null;
   verification_selfie_path: string | null;
+  verification_selfie_signed_url?: string | null;
   created_at: string;
   updated_at: string;
   last_active_at?: string | null;
@@ -258,16 +258,18 @@ export default function AdminUserDetailPage() {
                 ? ` · ${new Date(data.profile.photo_verified_at).toLocaleString()}`
                 : null}
             </p>
-            {data.profile.verification_selfie_path ? (
+            {data.profile.verification_selfie_signed_url ? (
               <div className="mt-3">
                 <p className="text-xs font-medium text-zinc-500">Submitted selfie</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={profilePhotoPublicUrl(data.profile.verification_selfie_path)}
+                  src={data.profile.verification_selfie_signed_url}
                   alt="Verification selfie"
                   className="mt-2 max-h-56 rounded-lg border border-zinc-200 object-contain dark:border-zinc-700"
                 />
               </div>
+            ) : data.profile.verification_selfie_path ? (
+              <p className="mt-2 text-xs text-zinc-500">Selfie on file (signed URL unavailable).</p>
             ) : (
               <p className="mt-2 text-xs text-zinc-500">No selfie submitted.</p>
             )}

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signProfilePhotoUrlsBatch } from "@/lib/photos-sign-server";
 import { chunkArray } from "@/lib/chunk-array";
 import { hashQuestionBankForCache } from "@/lib/matching/question-bank-hash";
 import {
@@ -521,8 +522,20 @@ export async function GET(req: Request) {
   enriched.sort((a, b) => b.rankScore - a.rankScore);
   const diversified = diversifyByScoreTier(enriched, user.id).slice(0, 40);
 
+  // Sign photo URLs server-side — the bucket is now private and raw
+  // URLs no longer fetch. Done after all filtering so we never sign
+  // photos for users the viewer can't see.
+  const photosByUserId = new Map<string, string[]>();
+  for (const row of diversified) {
+    photosByUserId.set(row.profile.id, row.profile.photo_urls);
+  }
+  const signed = await signProfilePhotoUrlsBatch(admin, photosByUserId);
+
   const items: DiscoverItem[] = diversified.map((row) => ({
-    profile: row.profile,
+    profile: {
+      ...row.profile,
+      photo_urls: signed.get(row.profile.id) ?? [],
+    },
     score: row.score,
     insight: row.insight,
   }));
