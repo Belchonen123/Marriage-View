@@ -1,7 +1,6 @@
 "use client";
 
 import { adminApiFetch } from "@/lib/admin-api-fetch";
-import { profilePhotoPublicUrl } from "@/lib/public-storage-url";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -155,7 +154,7 @@ export default function AdminPhotosPage() {
                     {photo ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={profilePhotoPublicUrl(photo)}
+                        src={photo}
                         alt={p.display_name || "Member photo"}
                         className="h-full w-full object-cover"
                         loading="lazy"
