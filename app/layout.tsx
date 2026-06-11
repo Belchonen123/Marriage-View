@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { FeatureFlagsProvider } from "@/components/FeatureFlagsProvider";
 import { GlobalRealtimeNotifications } from "@/components/GlobalRealtimeNotifications";
+import { PwaInstall } from "@/components/PwaInstall";
 import { Shell } from "@/components/Shell";
 import { ThemeSync } from "@/components/ThemeSync";
 import { ToastProvider } from "@/components/ToastProvider";
@@ -30,11 +31,32 @@ export const metadata: Metadata = {
   title: "Marriage View — The Video Dating Platform",
   description:
     "Marriage View is the video dating platform for marriage-focused people: thoughtful matching, light chat to coordinate, and real video dates.",
+  applicationName: "Marriage View",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     title: "Marriage View",
+    statusBarStyle: "black-translucent",
   },
+  formatDetection: { telephone: false },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: ["/icon.svg"],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#be123c" },
+    { media: "(prefers-color-scheme: dark)", color: "#881337" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -57,6 +79,7 @@ export default function RootLayout({
           <GlobalRealtimeNotifications />
           <FeatureFlagsProvider>
             <Shell>{children}</Shell>
+            <PwaInstall />
           </FeatureFlagsProvider>
         </ToastProvider>
       </body>
