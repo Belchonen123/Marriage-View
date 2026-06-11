@@ -1,14 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { sendWebPushToUser } from "@/lib/push-notify";
 import { NextResponse } from "next/server";
+import webpush from "web-push";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Fires a self-test push to the calling user. Returns a diagnostic JSON so
- * a phone hitting this can see exactly why push isn't firing (VAPID missing,
- * no subscriptions, etc.) without having to inspect server logs.
+ * Fires a self-test push to the calling user and returns rich diagnostics
+ * (per-subscription success/failure) so we can debug push from the phone
+ * without server-log access.
  */
 export async function POST() {
   const supabase = await createClient();
@@ -26,18 +26,19 @@ export async function POST() {
     return NextResponse.json({ error: "Server misconfigured (admin)." }, { status: 500 });
   }
 
-  const vapidConfigured =
-    Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) &&
-    Boolean(process.env.VAPID_PRIVATE_KEY);
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  const subject = process.env.VAPID_SUBJECT ?? "mailto:support@example.com";
+  const vapidConfigured = Boolean(publicKey && privateKey);
 
-  const { count, error: countErr } = await admin
+  const { data: subs, error: subsErr } = await admin
     .from("push_subscriptions")
-    .select("endpoint", { count: "exact", head: true })
+    .select("endpoint, subscription")
     .eq("user_id", user.id);
 
-  if (countErr) {
+  if (subsErr) {
     return NextResponse.json(
-      { ok: false, vapidConfigured, subscriptions: 0, error: countErr.message },
+      { ok: false, vapidConfigured, subscriptions: 0, error: subsErr.message },
       { status: 500 },
     );
   }
@@ -46,34 +47,68 @@ export async function POST() {
     return NextResponse.json({
       ok: false,
       vapidConfigured: false,
-      subscriptions: count ?? 0,
+      subscriptions: subs?.length ?? 0,
+      vapidPublicHint: null,
       message:
         "Server VAPID keys are missing. Set NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT on Vercel and redeploy.",
     });
   }
 
-  if (!count) {
+  if (!subs || subs.length === 0) {
     return NextResponse.json({
       ok: false,
       vapidConfigured: true,
       subscriptions: 0,
+      vapidPublicHint: publicKey?.slice(0, 12) ?? null,
       message:
-        "No push subscription saved for this user yet. Tap Enable to subscribe first.",
+        "No push subscription saved for this user yet. Reload this page (the app will auto-subscribe) or tap Enable to subscribe first.",
     });
   }
 
-  await sendWebPushToUser(admin, user.id, {
-    type: "message",
+  webpush.setVapidDetails(subject, publicKey!, privateKey!);
+
+  const payload = JSON.stringify({
     title: "Marriage View test",
     body: "If you see this, push works. ✅",
     url: "/matches",
+    type: "message",
     tag: "mv-test",
   });
 
+  type Result = { endpoint: string; ok: boolean; statusCode?: number; error?: string };
+  const results: Result[] = [];
+
+  for (const row of subs) {
+    const sub = row.subscription as webpush.PushSubscription;
+    const endpoint = (row.endpoint as string).slice(0, 80) + "…";
+    try {
+      const r = await webpush.sendNotification(sub, payload, { TTL: 60 });
+      results.push({ endpoint, ok: true, statusCode: r.statusCode });
+    } catch (e) {
+      const err = e as { statusCode?: number; body?: string; message?: string };
+      const code = err.statusCode ?? 0;
+      const errorText = err.message ?? err.body ?? "send failed";
+      results.push({ endpoint, ok: false, statusCode: code, error: errorText });
+      if (code === 404 || code === 410) {
+        await admin
+          .from("push_subscriptions")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("endpoint", row.endpoint as string);
+      }
+    }
+  }
+
+  const anyOk = results.some((r) => r.ok);
+
   return NextResponse.json({
-    ok: true,
+    ok: anyOk,
     vapidConfigured: true,
-    subscriptions: count,
-    message: "Test push fired. Look for the system notification.",
+    subscriptions: subs.length,
+    vapidPublicHint: publicKey?.slice(0, 12) ?? null,
+    results,
+    message: anyOk
+      ? "Test push fired. Look for the system notification."
+      : "Push attempted but every subscription failed. Re-enable from the prompt below.",
   });
 }

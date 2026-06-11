@@ -220,18 +220,26 @@ export default function SettingsPage() {
         error?: string;
         vapidConfigured?: boolean;
         subscriptions?: number;
+        vapidPublicHint?: string | null;
+        results?: { ok: boolean; statusCode?: number; error?: string }[];
       };
       if (!res.ok) {
         show(data.error ?? "Test failed", "error");
         return;
       }
-      const detail = `Subscriptions: ${data.subscriptions ?? 0} · VAPID: ${data.vapidConfigured ? "on" : "off"}`;
+      const parts: string[] = [];
+      parts.push(`Subs: ${data.subscriptions ?? 0}`);
+      parts.push(`VAPID: ${data.vapidConfigured ? "on" : "off"}`);
+      if (data.results?.length) {
+        const codes = data.results.map((r) => (r.ok ? "✓" : `✗${r.statusCode ?? "?"}`)).join(" ");
+        parts.push(`Send: ${codes}`);
+      }
       show(
         data.ok
-          ? `${data.message ?? "Test push fired."} (${detail})`
-          : `${data.message ?? "Push not ready."} (${detail})`,
+          ? `${data.message ?? "Test push fired."} (${parts.join(" · ")})`
+          : `${data.message ?? "Push not ready."} (${parts.join(" · ")})`,
         data.ok ? "success" : "info",
-        { durationMs: 8000 },
+        { durationMs: 12000 },
       );
     } catch (e) {
       show(e instanceof Error ? e.message : "Test failed", "error");
