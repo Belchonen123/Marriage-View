@@ -1,8 +1,10 @@
 import { buildCoachProfileContext } from "@/lib/coach/format-profile-for-coach";
+import { checkAndIncrementCoachQuota } from "@/lib/coach/rate-limit";
 import { COACH_SYSTEM_PROMPT } from "@/lib/coach/system-prompt";
 import { completeChat, CoachNotConfiguredError, type ChatMessage } from "@/lib/coach/openai-fetch";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isUserSuspended } from "@/lib/suspension-guard";
 import { NextResponse } from "next/server";
 import type { ProfileRow, QuestionRow } from "@/lib/types";
 
@@ -45,6 +47,24 @@ export async function POST(req: Request) {
     admin = createAdminClient();
   } catch {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  if (await isUserSuspended(admin, user.id)) {
+    return NextResponse.json(
+      { error: "Your account is suspended. Contact support." },
+      { status: 403 },
+    );
+  }
+
+  const quota = await checkAndIncrementCoachQuota(admin, user.id);
+  if (!quota.allowed) {
+    return NextResponse.json(
+      {
+        error: `Daily coach limit reached (${quota.used}/${quota.limit}). Resets at ${quota.resetsAt}.`,
+        quota,
+      },
+      { status: 429 },
+    );
   }
 
   const body = await req.json().catch(() => null);

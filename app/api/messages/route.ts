@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isPairBlocked } from "@/lib/pair-blocked";
 import { sendWebPushToUser } from "@/lib/push-notify";
 import { underMessageLimit } from "@/lib/rate-limit";
+import { isUserSuspended } from "@/lib/suspension-guard";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,13 @@ export async function POST(req: Request) {
     admin = createAdminClient();
   } catch {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  if (await isUserSuspended(admin, user.id)) {
+    return NextResponse.json(
+      { error: "Your account is suspended. Contact support." },
+      { status: 403 },
+    );
   }
 
   const ok = await underMessageLimit(admin, user.id);

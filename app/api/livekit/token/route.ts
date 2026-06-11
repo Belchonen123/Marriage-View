@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPairBlocked } from "@/lib/pair-blocked";
 import { sendWebPushToUser } from "@/lib/push-notify";
+import { isUserSuspended } from "@/lib/suspension-guard";
 import { sendAlert, type AlertChannel } from "@/lib/twilio";
 import { AccessToken } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
@@ -52,6 +53,24 @@ export async function POST(req: Request) {
 
   const ma = match.user_a as string;
   const mb = match.user_b as string;
+
+  // Either party suspended → no call. Block the suspended caller from
+  // continuing to dial existing matches, and protect everyone else from
+  // a suspended user calling them.
+  if (await isUserSuspended(admin, user.id)) {
+    return NextResponse.json(
+      { error: "Your account is suspended. Contact support." },
+      { status: 403 },
+    );
+  }
+  const otherId = ma === user.id ? mb : ma;
+  if (await isUserSuspended(admin, otherId)) {
+    return NextResponse.json(
+      { error: "This person is no longer available on Marriage View." },
+      { status: 403 },
+    );
+  }
+
   if (await isPairBlocked(admin, ma, mb)) {
     return NextResponse.json(
       { error: "Video calls are not available between blocked accounts." },

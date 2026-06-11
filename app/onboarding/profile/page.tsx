@@ -211,36 +211,29 @@ export default function OnboardingProfilePage() {
     }
     maxKmVal = Math.min(20_000, maxKmVal);
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          id: user.id,
-          display_name: displayName.trim(),
-          birth_year: birthYearVal,
-          city: city.trim() || null,
-          bio: bio.trim(),
-          gender,
-          seeking,
-          age_min: ageMinVal,
-          age_max: ageMaxVal,
-          max_distance_km: maxKmVal,
-          latitude: Number.isFinite(latitude) ? latitude : null,
-          longitude: Number.isFinite(longitude) ? longitude : null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" },
-      )
-      .select("id")
-      .maybeSingle();
-
-    if (error) {
-      setMsg(error.message);
-      return;
-    }
-    if (!data) {
+    const res = await fetch("/api/profile", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        display_name: displayName.trim(),
+        birth_year: birthYearVal,
+        city: city.trim() || null,
+        bio: bio.trim(),
+        gender,
+        seeking,
+        age_min: ageMinVal,
+        age_max: ageMaxVal,
+        max_distance_km: maxKmVal,
+        latitude: Number.isFinite(latitude) ? latitude : null,
+        longitude: Number.isFinite(longitude) ? longitude : null,
+      }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; id?: string };
+    if (!res.ok) {
       setMsg(
-        "We couldn't save your profile. Please try again, or sign out and back in. If this keeps happening, WhatsApp Ben at (646) 504-4236.",
+        data.error ??
+          "We couldn't save your profile. Please try again, or sign out and back in. If this keeps happening, WhatsApp Ben at (646) 504-4236.",
       );
       return;
     }
