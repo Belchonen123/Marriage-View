@@ -71,25 +71,13 @@ export function BrandCard({
 
   if (variant === "compact") {
     return (
-      <div
-        ref={ref}
-        className="mt-6 flex w-full flex-col items-center gap-1 px-4 text-center"
-      >
+      <div ref={ref} className="mt-6 flex w-full justify-center px-4 text-center">
         <a
           href={href}
           onClick={onClick}
           className="text-xs leading-relaxed text-zinc-500 underline-offset-4 hover:underline dark:text-zinc-400"
         >
           Built and run with AI by Ben Elchonen — see what AI can build for your business →
-        </a>
-        <a
-          href={DEFAULT_WHATSAPP}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={onClick}
-          className="text-[11px] font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-300"
-        >
-          WhatsApp Ben · {DEFAULT_PHONE_DISPLAY}
         </a>
       </div>
     );
