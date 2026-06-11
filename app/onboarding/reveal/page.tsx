@@ -1,3 +1,4 @@
+import { CallAlertsPrompt } from "@/components/CallAlertsPrompt";
 import { buildPersonalityRevealLines } from "@/lib/personality-reveal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -72,6 +73,7 @@ export default async function OnboardingRevealPage() {
           Refine questionnaire
         </Link>
       </div>
+      <CallAlertsPrompt />
     </div>
   );
 }

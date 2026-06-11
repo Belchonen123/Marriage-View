@@ -90,10 +90,29 @@ export function ChatRoomClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ matchId }),
       });
+      setVideoPrimerOpen(false);
       setVideoOpen(true);
       router.replace(`/chat/${matchId}`, { scroll: false });
     });
   }, [searchParams, matchId, router]);
+
+  /** Same-path answer: Answer button on the global ring while already on /chat/[matchId]. */
+  useEffect(() => {
+    const onAnswer = (e: Event) => {
+      const detail = (e as CustomEvent<{ matchId?: string }>).detail;
+      if (!detail || detail.matchId !== matchId) return;
+      void fetch("/api/call-signal/dismiss", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId }),
+      });
+      setVideoPrimerOpen(false);
+      setVideoOpen(true);
+    };
+    window.addEventListener("marriage-view:answer-call", onAnswer);
+    return () => window.removeEventListener("marriage-view:answer-call", onAnswer);
+  }, [matchId]);
 
   useEffect(() => {
     let cancelled = false;

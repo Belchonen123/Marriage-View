@@ -35,6 +35,7 @@ export function GlobalRealtimeNotifications() {
   const ringRef = useRef<ReturnType<typeof startCallRingtone> | null>(null);
   const matchNamesRef = useRef<Map<string, string>>(new Map());
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const messagesChannelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     pathnameRef.current = pathname;
@@ -44,13 +45,55 @@ export function GlobalRealtimeNotifications() {
     let cancelled = false;
     const channelName = `nexus-notify:${crypto.randomUUID()}`;
 
-    function dismissCall(matchId: string) {
-      void fetch("/api/call-signal/dismiss", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId }),
-      });
+    async function showCallSystemNotification(callerName: string, videoPath: string, matchId: string) {
+      if (
+        !isDesktopNotificationDesired() ||
+        typeof Notification === "undefined" ||
+        Notification.permission !== "granted" ||
+        document.visibilityState === "visible"
+      ) {
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker?.ready;
+        if (!reg) return;
+        await reg.showNotification(`${callerName} is calling`, {
+          body: "Video date invitation — tap to join",
+          tag: `call-${matchId}`,
+          renotify: true,
+          requireInteraction: true,
+          vibrate: [300, 100, 300, 100, 300],
+          icon: "/icon.svg",
+          badge: "/icon.svg",
+          data: { url: videoPath, matchId, type: "call" },
+        } as NotificationOptions);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    async function showMessageSystemNotification(from: string, preview: string, matchId: string, chatPath: string) {
+      if (
+        !isDesktopNotificationDesired() ||
+        typeof Notification === "undefined" ||
+        Notification.permission !== "granted" ||
+        document.visibilityState === "visible"
+      ) {
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker?.ready;
+        if (!reg) return;
+        await reg.showNotification(from, {
+          body: preview,
+          tag: `msg-${matchId}`,
+          icon: "/icon.svg",
+          badge: "/icon.svg",
+          data: { url: chatPath, type: "message" },
+        });
+      } catch {
+        /* ignore */
+      }
     }
 
     void (async () => {
@@ -60,11 +103,9 @@ export function GlobalRealtimeNotifications() {
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
 
-      const ch = supabase.channel(channelName);
-      if (cancelled) return;
-      channelRef.current = ch;
-
-      ch.on(
+      // CALLS channel — attach handler then subscribe IMMEDIATELY so rings have zero delay.
+      const callsCh = supabase.channel(channelName);
+      callsCh.on(
         "postgres_changes",
         {
           event: "INSERT",
@@ -82,120 +123,90 @@ export function GlobalRealtimeNotifications() {
             .maybeSingle();
           const callerName = (p?.display_name as string) ?? "Your match";
           const chatPath = `/chat/${row.match_id}`;
+          const videoPath = `${chatPath}?video=1`;
 
           ringRef.current?.stop();
           ringRef.current = startCallRingtone();
           window.setTimeout(() => ringRef.current?.stop(), 55_000);
           setIncoming({ matchId: row.match_id, callerName });
 
-          if (
-            isDesktopNotificationDesired() &&
-            typeof Notification !== "undefined" &&
-            Notification.permission === "granted" &&
-            document.visibilityState !== "visible"
-          ) {
-            try {
-              const videoPath = `${chatPath}?video=1`;
-              const n = new Notification(`${callerName} is calling`, {
-                body: "Video date invitation on Marriage View",
-                tag: `nexus-call-${row.match_id}`,
-              });
-              n.onclick = () => {
-                window.focus();
-                router.push(videoPath);
-                n.close();
-              };
-            } catch {
-              /* ignore */
-            }
-          }
-          /* Full-screen incoming UI + ringtone; skip duplicate toast with Answer/Decline. */
+          void showCallSystemNotification(callerName, videoPath, row.match_id);
         },
       );
+      if (cancelled) return;
+      channelRef.current = callsCh;
+      callsCh.subscribe();
 
+      // MESSAGES channel — second channel, after the match list loads.
       const res = await fetch("/api/matches/summary", { credentials: "include" });
       if (cancelled) return;
+      if (!res.ok) return;
 
-      if (res.ok) {
-        const data = (await res.json()) as { threads: { matchId: string }[] };
-        const matchIds = [...new Set(data.threads.map((t) => t.matchId))];
+      const data = (await res.json()) as { threads: { matchId: string }[] };
+      const matchIds = [...new Set(data.threads.map((t) => t.matchId))];
+      if (!matchIds.length) return;
 
-        for (const mid of matchIds) {
-          const { data: m } = await supabase
-            .from("matches")
-            .select("user_a, user_b")
-            .eq("id", mid)
-            .maybeSingle();
-          if (!m) continue;
-          const oid = m.user_a === user.id ? m.user_b : m.user_a;
-          const { data: prof } = await supabase
-            .from("profiles")
-            .select("display_name")
-            .eq("id", oid)
-            .maybeSingle();
-          matchNamesRef.current.set(mid, (prof?.display_name as string) ?? "Match");
-        }
-
-        for (const mid of matchIds) {
-          ch.on(
-            "postgres_changes",
-            {
-              event: "INSERT",
-              schema: "public",
-              table: "messages",
-              filter: `match_id=eq.${mid}`,
-            },
-            (payload) => {
-              if (cancelled) return;
-              const row = payload.new as { id: string; match_id: string; sender_id: string; body: string };
-              if (row.sender_id === user.id) return;
-              const chatPath = `/chat/${row.match_id}`;
-              if (pathnameRef.current === chatPath) return;
-
-              const from = matchNamesRef.current.get(row.match_id) ?? "Match";
-              const preview =
-                row.body.length > 140 ? `${row.body.slice(0, 140)}…` : row.body;
-              playMessagePing();
-              if (
-                isDesktopNotificationDesired() &&
-                typeof Notification !== "undefined" &&
-                Notification.permission === "granted" &&
-                document.visibilityState !== "visible"
-              ) {
-                try {
-                  const n = new Notification(from, { body: preview, tag: `nexus-msg-${row.match_id}` });
-                  n.onclick = () => {
-                    window.focus();
-                    router.push(chatPath);
-                    n.close();
-                  };
-                } catch {
-                  /* ignore */
-                }
-              }
-              setMsgPopup({
-                id: row.id,
-                matchId: row.match_id,
-                preview,
-                fromLabel: from,
-              });
-              show(`New message from ${from}`, "info", {
-                durationMs: 12_000,
-                actions: [{ label: "View chat", onClick: () => router.push(chatPath) }],
-              });
-              if (pathnameRef.current === "/matches") {
-                window.dispatchEvent(new CustomEvent("nexus-matches-refresh"));
-              }
-              window.setTimeout(() => {
-                setMsgPopup((cur) => (cur?.id === row.id ? null : cur));
-              }, 14_000);
-            },
-          );
-        }
+      for (const mid of matchIds) {
+        const { data: m } = await supabase
+          .from("matches")
+          .select("user_a, user_b")
+          .eq("id", mid)
+          .maybeSingle();
+        if (!m) continue;
+        const oid = m.user_a === user.id ? m.user_b : m.user_a;
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", oid)
+          .maybeSingle();
+        matchNamesRef.current.set(mid, (prof?.display_name as string) ?? "Match");
       }
 
       if (cancelled) return;
-      ch.subscribe();
+      const msgsCh = supabase.channel(`nexus-msgs:${crypto.randomUUID()}`);
+      for (const mid of matchIds) {
+        msgsCh.on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `match_id=eq.${mid}`,
+          },
+          (payload) => {
+            if (cancelled) return;
+            const row = payload.new as { id: string; match_id: string; sender_id: string; body: string };
+            if (row.sender_id === user.id) return;
+            const chatPath = `/chat/${row.match_id}`;
+            if (pathnameRef.current === chatPath) return;
+
+            const from = matchNamesRef.current.get(row.match_id) ?? "Match";
+            const preview =
+              row.body.length > 140 ? `${row.body.slice(0, 140)}…` : row.body;
+            playMessagePing();
+            void showMessageSystemNotification(from, preview, row.match_id, chatPath);
+            setMsgPopup({
+              id: row.id,
+              matchId: row.match_id,
+              preview,
+              fromLabel: from,
+            });
+            show(`New message from ${from}`, "info", {
+              durationMs: 12_000,
+              actions: [{ label: "View chat", onClick: () => router.push(chatPath) }],
+            });
+            if (pathnameRef.current === "/matches") {
+              window.dispatchEvent(new CustomEvent("nexus-matches-refresh"));
+            }
+            window.setTimeout(() => {
+              setMsgPopup((cur) => (cur?.id === row.id ? null : cur));
+            }, 14_000);
+          },
+        );
+      }
+      if (cancelled) return;
+      messagesChannelRef.current = msgsCh;
+      msgsCh.subscribe();
     })();
 
     return () => {
@@ -205,6 +216,9 @@ export function GlobalRealtimeNotifications() {
       const ch = channelRef.current;
       channelRef.current = null;
       if (ch) void supabase.removeChannel(ch);
+      const mch = messagesChannelRef.current;
+      messagesChannelRef.current = null;
+      if (mch) void supabase.removeChannel(mch);
     };
   }, [router, show, supabase]);
 
@@ -282,7 +296,14 @@ export function GlobalRealtimeNotifications() {
                   ringRef.current?.stop();
                   const mid = incoming.matchId;
                   setIncoming(null);
-                  router.push(`/chat/${mid}?video=1`);
+                  const chatPath = `/chat/${mid}`;
+                  if (pathnameRef.current === chatPath) {
+                    window.dispatchEvent(
+                      new CustomEvent("marriage-view:answer-call", { detail: { matchId: mid } }),
+                    );
+                  } else {
+                    router.push(`${chatPath}?video=1`);
+                  }
                 }}
               >
                 Answer

@@ -2,6 +2,16 @@
 
 **Marriage View — The Video Dating Platform** is a marriage-oriented web app for thoughtful profile discovery, questionnaire-based compatibility, mutual matching, light coordination chat, and **video dates** (Video Date Room). It is built as a **Next.js** full-stack app backed by **Supabase** (Postgres, Auth, Realtime, Storage) and **LiveKit** (WebRTC).
 
+## Receiving call rings on iOS
+
+iOS Safari does **not** deliver web push to a regular browser tab. To get rung when a match starts a video date, an iPhone/iPad user must **install Marriage View as a PWA**:
+
+1. Open the site in **Safari** (not Chrome — iOS Chrome cannot install PWAs).
+2. Tap **Share → Add to Home Screen**.
+3. Launch Marriage View from the new home-screen icon and grant **Allow Notifications** when prompted (or tap "Enable" on the Call Alerts card on `/matches`).
+
+Requires **iOS 16.4 or later**. Android Chrome and desktop Chrome/Edge/Firefox work in a regular tab.
+
 > This project is suitable as a **prototype or MVP**. Hardening for public production (secrets hygiene, moderation scale, legal pages, observability) is left to your deployment standards.
 
 **Positioning.** Today Marriage View is a coherent **matching infrastructure**: onboarding, filters, scoring, mutual matches, chat, and video. What turns it into a *product* users stay with is the layer above that: **explainable match quality**, **feed ranking that feels alive**, **retention loops** (reasons to return), **trust and moderation depth**, and optional **monetization** and **AI-assisted guidance**. The roadmap below is the intended upgrade path; most items are not implemented yet.

@@ -1,4 +1,5 @@
 import { BrandCard } from "@/components/BrandCard";
+import { CallAlertsPrompt } from "@/components/CallAlertsPrompt";
 import { EmptyState } from "@/components/EmptyState";
 import { InboundLikesSection } from "@/components/InboundLikesSection";
 import { MatchesList, type MatchPreview } from "@/components/MatchesList";
@@ -108,6 +109,7 @@ export default async function MatchesPage() {
           both ready.
         </p>
       </div>
+      <CallAlertsPrompt />
       <InboundLikesSection />
       {!matches?.length ? (
         <EmptyState

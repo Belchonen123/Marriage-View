@@ -1,5 +1,5 @@
 /* global self, caches, fetch, URL, Response */
-const VERSION = "mv-v1";
+const VERSION = "mv-v2-ring";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const IMAGE_CACHE = `images-${VERSION}`;
@@ -156,8 +156,14 @@ self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
 
+function matchIdFromTag(tag) {
+  if (typeof tag !== "string") return null;
+  const m = tag.match(/^call-(.+)$/);
+  return m ? m[1] : null;
+}
+
 self.addEventListener("push", (event) => {
-  let data = { title: "Marriage View", body: "", url: "/matches" };
+  let data = { title: "Marriage View", body: "", url: "/matches", type: null, tag: null };
   try {
     if (event.data) {
       data = { ...data, ...event.data.json() };
@@ -165,33 +171,73 @@ self.addEventListener("push", (event) => {
   } catch {
     /* ignore */
   }
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      data: { url: data.url || "/matches" },
-      icon: "/icon.svg",
-      badge: "/icon.svg",
-    }),
-  );
+
+  const isCall = data.type === "call";
+  const url = data.url || "/matches";
+  const tag = data.tag || (isCall ? "call" : undefined);
+  const matchId = matchIdFromTag(tag);
+
+  const options = isCall
+    ? {
+        body: data.body,
+        icon: "/icon.svg",
+        badge: "/icon.svg",
+        tag,
+        renotify: true,
+        requireInteraction: true,
+        vibrate: [300, 100, 300, 100, 300],
+        actions: [
+          { action: "answer", title: "Answer" },
+          { action: "decline", title: "Decline" },
+        ],
+        data: { url, matchId, type: "call" },
+      }
+    : {
+        body: data.body,
+        icon: "/icon.svg",
+        badge: "/icon.svg",
+        tag,
+        data: { url, type: data.type ?? null },
+      };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });
+
+async function focusOrOpen(url) {
+  const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  for (const c of all) {
+    if (c.url.startsWith(self.location.origin) && "focus" in c) {
+      await c.focus();
+      if ("navigate" in c && typeof c.navigate === "function") {
+        await c.navigate(url);
+      }
+      return;
+    }
+  }
+  if (self.clients.openWindow) await self.clients.openWindow(url);
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const raw = event.notification.data?.url || "/matches";
+  const d = event.notification.data || {};
+  const action = event.action;
+  const raw = d.url || "/matches";
   const url = new URL(raw, self.location.origin).href;
-  event.waitUntil(
-    (async () => {
-      const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      for (const c of all) {
-        if (c.url.startsWith(self.location.origin) && "focus" in c) {
-          await c.focus();
-          if ("navigate" in c && typeof c.navigate === "function") {
-            await c.navigate(url);
-            return;
-          }
-        }
-      }
-      if (self.clients.openWindow) await self.clients.openWindow(url);
-    })(),
-  );
+
+  if (action === "decline" && d.type === "call" && d.matchId) {
+    event.waitUntil(
+      fetch("/api/call-signal/dismiss", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId: d.matchId }),
+      }).catch(() => {
+        /* ignore */
+      }),
+    );
+    return;
+  }
+
+  // "answer" or plain body click → open or focus and navigate to url
+  event.waitUntil(focusOrOpen(url));
 });

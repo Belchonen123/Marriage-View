@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPairBlocked } from "@/lib/pair-blocked";
+import { sendWebPushToUser } from "@/lib/push-notify";
 import { AccessToken } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
 
@@ -69,6 +70,14 @@ export async function POST(req: Request) {
     .limit(1)
     .maybeSingle();
 
+  const { data: callerProfile } = await admin
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .maybeSingle();
+  const callerDisplayName =
+    (callerProfile?.display_name as string | null | undefined)?.trim() || "Member";
+
   if (!recentSig) {
     const { error: sigErr } = await admin.from("call_signals").insert({
       match_id: matchId,
@@ -78,12 +87,21 @@ export async function POST(req: Request) {
     if (sigErr) {
       console.warn("livekit token: call_signals insert:", sigErr.message);
     }
+    void sendWebPushToUser(admin, calleeId, {
+      type: "call",
+      title: `${callerDisplayName} is calling`,
+      body: "Video date invitation — tap to join",
+      url: `/chat/${matchId}?video=1`,
+      tag: `call-${matchId}`,
+    }).catch(() => {
+      /* fire-and-forget */
+    });
   }
 
   const roomName = `match-${matchId}`;
   const token = new AccessToken(apiKey, apiSecret, {
     identity: user.id,
-    name: user.email ?? user.id,
+    name: callerDisplayName,
   });
   token.addGrant({
     roomJoin: true,

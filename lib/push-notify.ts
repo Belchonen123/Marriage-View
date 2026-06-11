@@ -16,7 +16,13 @@ function ensureVapid() {
   return true;
 }
 
-type PushPayload = { title: string; body: string; url: string };
+type PushPayload = {
+  title: string;
+  body: string;
+  url: string;
+  type?: "call" | "message" | string;
+  tag?: string;
+};
 
 /**
  * Fire-and-forget web push for all subscriptions of a user. No-op if VAPID not configured.
@@ -35,6 +41,8 @@ export async function sendWebPushToUser(admin: SupabaseClient, userId: string, p
     title: payload.title,
     body: payload.body,
     url: payload.url,
+    type: payload.type,
+    tag: payload.tag,
   });
 
   for (const row of rows) {
