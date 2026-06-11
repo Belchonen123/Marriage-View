@@ -1,5 +1,5 @@
 /* global self, caches, fetch, URL, Response */
-const VERSION = "mv-v2-ring";
+const VERSION = "mv-v3-png-icons";
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 const IMAGE_CACHE = `images-${VERSION}`;
@@ -9,8 +9,10 @@ const PRECACHE = [
   "/",
   "/offline",
   "/manifest.webmanifest",
-  "/icon.svg",
-  "/icon-maskable.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/badge-96.png",
+  "/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -180,8 +182,8 @@ self.addEventListener("push", (event) => {
   const options = isCall
     ? {
         body: data.body,
-        icon: "/icon.svg",
-        badge: "/icon.svg",
+        icon: "/icon-192.png",
+        badge: "/badge-96.png",
         tag,
         renotify: true,
         requireInteraction: true,
@@ -194,8 +196,8 @@ self.addEventListener("push", (event) => {
       }
     : {
         body: data.body,
-        icon: "/icon.svg",
-        badge: "/icon.svg",
+        icon: "/icon-192.png",
+        badge: "/badge-96.png",
         tag,
         data: { url, type: data.type ?? null },
       };

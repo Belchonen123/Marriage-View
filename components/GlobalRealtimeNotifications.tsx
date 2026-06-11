@@ -63,8 +63,8 @@ export function GlobalRealtimeNotifications() {
           renotify: true,
           requireInteraction: true,
           vibrate: [300, 100, 300, 100, 300],
-          icon: "/icon.svg",
-          badge: "/icon.svg",
+          icon: "/icon-192.png",
+          badge: "/badge-96.png",
           data: { url: videoPath, matchId, type: "call" },
         } as NotificationOptions);
       } catch {
@@ -87,8 +87,8 @@ export function GlobalRealtimeNotifications() {
         await reg.showNotification(from, {
           body: preview,
           tag: `msg-${matchId}`,
-          icon: "/icon.svg",
-          badge: "/icon.svg",
+          icon: "/icon-192.png",
+          badge: "/badge-96.png",
           data: { url: chatPath, type: "message" },
         });
       } catch {

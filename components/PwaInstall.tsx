@@ -121,7 +121,7 @@ export function PwaInstall() {
       <div className="pointer-events-auto flex w-full max-w-md flex-col gap-2 rounded-2xl border border-rose-200/70 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-rose-900/40 dark:bg-zinc-900/95">
         <div className="flex items-center gap-3">
           <img
-            src="/icon.svg"
+            src="/icon-192.png"
             alt=""
             className="h-10 w-10 rounded-xl"
             width={40}
