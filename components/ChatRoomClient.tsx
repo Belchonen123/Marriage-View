@@ -169,94 +169,79 @@ export function ChatRoomClient({
       <div className="card-surface motion-card space-y-5 border border-zinc-200/80 p-4 sm:p-5 dark:border-zinc-700/80">
         <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--accent)]">Match space</p>
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex min-w-0 flex-1 gap-3">
+        {/* Header row: photo + identity on the left, primary CTA on the right */}
+        <div className="flex flex-wrap items-center gap-4 sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={() => setMemberProfileOpen(true)}
+            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200/90 bg-zinc-100 shadow-sm dark:border-zinc-700 dark:bg-zinc-800 sm:h-16 sm:w-16"
+            aria-label={`View ${otherName}'s profile`}
+          >
+            {otherPreview?.photoUrl ? (
+              <Image
+                src={otherPreview.photoUrl}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="(max-width:640px) 56px, 64px"
+                unoptimized
+              />
+            ) : (
+              <span className="flex h-full items-center justify-center font-display text-lg font-semibold text-zinc-400">
+                {otherName.slice(0, 1).toUpperCase()}
+              </span>
+            )}
+          </button>
+          <div className="min-w-0 flex-1">
             <button
               type="button"
               onClick={() => setMemberProfileOpen(true)}
-              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-zinc-200/90 bg-zinc-100 shadow-sm dark:border-zinc-700 dark:bg-zinc-800 sm:h-16 sm:w-16"
-              aria-label={`View ${otherName}’s profile`}
+              className="group block text-left font-display text-lg font-semibold tracking-tight text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-50 sm:text-xl"
             >
-              {otherPreview?.photoUrl ? (
-                <Image
-                  src={otherPreview.photoUrl}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="(max-width:640px) 56px, 64px"
-                  unoptimized
-                />
-              ) : (
-                <span className="flex h-full items-center justify-center font-display text-lg font-semibold text-zinc-400">
-                  {otherName.slice(0, 1).toUpperCase()}
-                </span>
-              )}
+              {otherName}
             </button>
-            <div className="min-w-0 flex-1">
-              <button
-                type="button"
-                onClick={() => setMemberProfileOpen(true)}
-                className="group text-left font-display text-lg font-semibold tracking-tight text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-50 sm:text-xl"
-              >
-                {otherName}
-                <span className="ml-1.5 inline text-xs font-normal text-[var(--accent)] no-underline opacity-0 transition group-hover:opacity-100 sm:ml-2 sm:text-sm">
-                  View profile
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+              {metaParts.length > 0 ? <span>{metaParts.join(" · ")}</span> : null}
+              {otherPreview?.photoVerified ? (
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-600/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                  Verified
                 </span>
-              </button>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-                {metaParts.length > 0 ? <span>{metaParts.join(" · ")}</span> : null}
-                {otherPreview?.photoVerified ? (
-                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-600/90 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                    Verified
-                  </span>
-                ) : null}
-                {metaParts.length === 0 && !otherPreview?.photoVerified ? (
-                  <span className="text-zinc-500">Tap photo or name for full profile</span>
-                ) : null}
-              </div>
+              ) : null}
             </div>
           </div>
+          <button
+            type="button"
+            disabled={videoOpen && (videoPhase === "connecting" || videoPhase === "connected")}
+            onClick={() => void openVideoDateFlow()}
+            className="cta-video-primary order-3 min-h-10 w-full px-4 py-2.5 text-sm shrink-0 sm:order-none sm:w-auto"
+          >
+            {videoOpen && videoPhase === "connecting" ? "Connecting…" : "Video Date Room"}
+          </button>
+        </div>
 
-          <div className="w-full shrink-0 border-t border-zinc-200/60 pt-4 dark:border-zinc-700/60 lg:w-auto lg:border-t-0 lg:pt-0">
-            <div className="flex flex-col gap-1 lg:flex-row lg:flex-nowrap lg:items-end lg:justify-end lg:gap-3">
-              <div className="order-1 flex w-full flex-col items-stretch gap-1 lg:order-4 lg:w-auto lg:items-end">
-                <button
-                  type="button"
-                  disabled={videoOpen && (videoPhase === "connecting" || videoPhase === "connected")}
-                  onClick={() => void openVideoDateFlow()}
-                  className="cta-video-primary order-1 min-h-10 w-full px-4 py-2.5 text-sm lg:w-auto"
-                >
-                  {videoOpen && videoPhase === "connecting" ? "Connecting…" : "Video Date Room"}
-                </button>
-                <p className="order-2 text-center text-[10px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 lg:text-right">
-                  Schedule your video date
-                </p>
-              </div>
-              <div className="order-2 grid grid-cols-3 gap-2 sm:gap-3 lg:contents">
-                <button
-                  type="button"
-                  onClick={() => setMemberProfileOpen(true)}
-                  className="motion-tap min-h-10 rounded-full border border-zinc-300 px-2 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800 lg:order-1 lg:px-4 lg:text-sm"
-                >
-                  Profile
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCoachOpen(true)}
-                  className="motion-tap min-h-10 rounded-full border border-zinc-300 px-2 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800 lg:order-2 lg:px-4 lg:text-sm"
-                >
-                  Coach
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBlockDialogOpen(true)}
-                  className="motion-tap min-h-10 rounded-full border border-zinc-300 px-2 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800 lg:order-3 lg:px-4 lg:text-sm"
-                >
-                  Block
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Secondary actions: small chips, clearly subordinate to the CTA above */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200/60 pt-3 text-xs dark:border-zinc-700/60">
+          <button
+            type="button"
+            onClick={() => setMemberProfileOpen(true)}
+            className="motion-tap inline-flex items-center gap-1 rounded-full border border-zinc-300 px-3 py-1.5 font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            View profile
+          </button>
+          <button
+            type="button"
+            onClick={() => setCoachOpen(true)}
+            className="motion-tap inline-flex items-center gap-1 rounded-full border border-zinc-300 px-3 py-1.5 font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Ask coach
+          </button>
+          <button
+            type="button"
+            onClick={() => setBlockDialogOpen(true)}
+            className="motion-tap ml-auto inline-flex items-center gap-1 rounded-full border border-zinc-300 px-3 py-1.5 font-medium text-zinc-600 transition hover:bg-red-50 hover:text-red-700 hover:border-red-300 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+          >
+            Block
+          </button>
         </div>
 
         {commonCount != null && commonCount > 0 ? (
