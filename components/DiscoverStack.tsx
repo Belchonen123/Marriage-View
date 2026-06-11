@@ -3,7 +3,6 @@
 import { DiscoverProfilePhotos } from "@/components/DiscoverProfilePhotos";
 import { EmptyState } from "@/components/EmptyState";
 import { MemberProfileModal } from "@/components/MemberProfileModal";
-import { PlusUpsellModal } from "@/components/PlusUpsellModal";
 import { useToast } from "@/components/ToastProvider";
 import type { MatchInsight, PublicProfile } from "@/lib/types";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -46,25 +45,10 @@ type DiscoverDiag = {
   passedFilters: number;
 };
 
-function describeDiscoverFilters(maxKm: number | null, verifiedOnly: boolean): string {
-  const dist =
-    maxKm == null
-      ? "Distance: your profile range (“My range”)"
-      : `Distance: within ${maxKm} km`;
-  const ver = verifiedOnly ? " · Verified-only deck" : " · All eligible photos";
-  return `${dist}${ver}`;
-}
-
-function emptyDiscoverActionHints(diag: DiscoverDiag | null, verifiedOnly: boolean): string[] {
+function emptyDiscoverActionHints(diag: DiscoverDiag | null): string[] {
   const hints: string[] = [];
-  if (verifiedOnly) {
-    hints.push("Turn off “Verified photos only” to include more profiles (Plus).");
-  }
-  if (diag && diag.droppedVerifiedOnly && diag.droppedVerifiedOnly > 0) {
-    hints.push(`${diag.droppedVerifiedOnly} profile(s) were hidden by your verified-only filter.`);
-  }
   if (diag && diag.droppedDistance > 0) {
-    hints.push("Try a wider distance chip (e.g. 100 km or 200 km) or “My range”.");
+    hints.push("Try widening your distance preference in your profile settings.");
   }
   if (diag && diag.droppedAgePrefs > 0) {
     hints.push("Widen your age preferences in Profile if they’re very narrow.");
@@ -75,33 +59,28 @@ function emptyDiscoverActionHints(diag: DiscoverDiag | null, verifiedOnly: boole
     );
   }
   if (diag && diag.droppedAlreadySwipedOrSelf > 0 && diag.passedFilters === 0) {
-    hints.push("You may have passed or liked everyone currently eligible — check back later or adjust filters.");
+    hints.push("You may have passed or liked everyone currently eligible — check back later.");
   }
   if (!hints.length) {
-    hints.push("Adjust filters above, or refresh after more members join your area.");
+    hints.push("Check back later as more members join your area.");
   }
   return hints.slice(0, 4);
 }
 
 async function fetchDiscover(opts: {
-  maxKm: number | null;
-  verifiedOnly: boolean;
   prioritizeInbound: boolean;
 }): Promise<{
   items: Item[];
   error: string | null;
   diag: DiscoverDiag | null;
-  myBoostEndsAt: string | null;
 }> {
   const p = new URLSearchParams();
-  if (opts.maxKm != null) p.set("max_km", String(opts.maxKm));
-  if (opts.verifiedOnly) p.set("verified_only", "1");
   if (opts.prioritizeInbound) p.set("prioritize_inbound", "1");
   const qs = p.toString();
   const res = await fetch(qs ? `/api/discover?${qs}` : "/api/discover");
   const data = await res.json();
   if (!res.ok) {
-    return { items: [], error: data.error ?? "Could not load discovery", diag: null, myBoostEndsAt: null };
+    return { items: [], error: data.error ?? "Could not load discovery", diag: null };
   }
   const rawItems = (data.items ?? []) as Array<{
     profile: PublicProfile;
@@ -112,7 +91,6 @@ async function fetchDiscover(opts: {
     items: rawItems.map(normalizeDiscoverItem),
     error: null,
     diag: (data.diag as DiscoverDiag) ?? null,
-    myBoostEndsAt: (data.myBoostEndsAt as string | null) ?? null,
   };
 }
 
@@ -154,39 +132,21 @@ export function DiscoverStack() {
   const [diag, setDiag] = useState<DiscoverDiag | null>(null);
   /** Passed to exit variants: like → right (+1), pass → left (−1). */
   const [deckDir, setDeckDir] = useState<1 | -1>(1);
-  const [maxKmFilter, setMaxKmFilter] = useState<number | null>(null);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
-  const [tier, setTier] = useState<string>("free");
-  const [upsell, setUpsell] = useState<{ title: string; body: string } | null>(null);
   const [onboardingCta, setOnboardingCta] = useState<{ href: string; label: string } | null>(null);
-  const [myBoostEndsAt, setMyBoostEndsAt] = useState<string | null>(null);
-  const [boostViews, setBoostViews] = useState<number | null>(null);
   const impressionSentRef = useRef<string | null>(null);
   const [memberProfileOpen, setMemberProfileOpen] = useState(false);
-
-  useEffect(() => {
-    void (async () => {
-      const res = await fetch("/api/me/entitlements");
-      if (!res.ok) return;
-      const j = (await res.json()) as { tier?: string };
-      setTier(j.tier ?? "free");
-    })();
-  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { items: next, error: err, diag: d, myBoostEndsAt: b } = await fetchDiscover({
-      maxKm: maxKmFilter,
-      verifiedOnly,
+    const { items: next, error: err, diag: d } = await fetchDiscover({
       prioritizeInbound,
     });
     setItems(next);
     setError(err);
     setDiag(d);
-    setMyBoostEndsAt(b);
     setLoading(false);
-  }, [maxKmFilter, verifiedOnly, prioritizeInbound]);
+  }, [prioritizeInbound]);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,31 +158,6 @@ export function DiscoverStack() {
       cancelled = true;
     };
   }, [load]);
-
-  useEffect(() => {
-    if (!myBoostEndsAt) {
-      setBoostViews(null);
-      return;
-    }
-    const tick = () => {
-      void (async () => {
-        const res = await fetch("/api/me/boost-status");
-        if (!res.ok) return;
-        const j = (await res.json()) as { viewsThisSession?: number };
-        setBoostViews(j.viewsThisSession ?? 0);
-      })();
-    };
-    tick();
-    const id = window.setInterval(tick, 12000);
-    return () => window.clearInterval(id);
-  }, [myBoostEndsAt]);
-
-  const [boostPulse, setBoostPulse] = useState(0);
-  useEffect(() => {
-    if (!myBoostEndsAt) return;
-    const id = window.setInterval(() => setBoostPulse((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [myBoostEndsAt]);
 
   const cardTopId = items[0]?.profile.id;
 
@@ -348,7 +283,7 @@ export function DiscoverStack() {
         <div className="mt-4 rounded-xl border border-[var(--accent)]/20 bg-[var(--accent-muted)]/30 px-3 py-2.5 text-left dark:border-[var(--accent)]/25">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">Try this</p>
           <ul className="mt-1.5 list-inside list-disc space-y-1 text-xs text-zinc-700 dark:text-zinc-300">
-            {emptyDiscoverActionHints(diag, verifiedOnly).map((h) => (
+            {emptyDiscoverActionHints(diag).map((h) => (
               <li key={h}>{h}</li>
             ))}
           </ul>
@@ -391,27 +326,10 @@ export function DiscoverStack() {
                   </span>
                 </li>
               ) : null}
-              {diag.droppedVerifiedOnly != null && diag.droppedVerifiedOnly > 0 ? (
-                <li>
-                  Removed (verified-only filter): {diag.droppedVerifiedOnly}
-                </li>
-              ) : null}
             </ul>
           </div>
         ) : null}
         <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
-          {(maxKmFilter !== null || verifiedOnly) && (
-            <button
-              type="button"
-              onClick={() => {
-                setMaxKmFilter(null);
-                setVerifiedOnly(false);
-              }}
-              className="rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              Reset filters
-            </button>
-          )}
           <button
             type="button"
             onClick={() => void load()}
@@ -451,127 +369,9 @@ export function DiscoverStack() {
           },
   };
 
-  const boostRemainingSec =
-    myBoostEndsAt != null
-      ? Math.max(0, Math.floor((new Date(myBoostEndsAt).getTime() - Date.now()) / 1000)) + 0 * boostPulse
-      : 0;
-
-  function setVerifiedFilter(next: boolean) {
-    if (next && tier !== "plus") {
-      setUpsell({
-        title: "Photo-verified filter",
-        body: "Marriage View Plus unlocks a verified-only discover filter so you can prioritize trust-first profiles.",
-      });
-      return;
-    }
-    setVerifiedOnly(next);
-  }
-
-  async function startBoost() {
-    if (tier !== "plus") {
-      setUpsell({
-        title: "Profile Boost",
-        body: "Boost puts you higher in other people’s discover stacks for a limited window, with a live view ticker.",
-      });
-      return;
-    }
-    const res = await fetch("/api/boost/start", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      show(data.error ?? "Boost failed", "error");
-      return;
-    }
-    show("Boost active — more people will see you soon.", "success");
-    void load();
-  }
-
-  const distanceChips: { label: string; km: number | null }[] = [
-    { label: "My range", km: null },
-    { label: "25 km", km: 25 },
-    { label: "50 km", km: 50 },
-    { label: "100 km", km: 100 },
-    { label: "200 km", km: 200 },
-  ];
-
-  const filtersNonDefault = maxKmFilter !== null || verifiedOnly;
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-5">
-      <div className="space-y-3 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 dark:border-zinc-700/80 dark:bg-zinc-900/40">
-        <p className="text-[11px] leading-snug text-zinc-600 dark:text-zinc-400">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">Active filters:</span>{" "}
-          {describeDiscoverFilters(maxKmFilter, verifiedOnly)}
-          {filtersNonDefault ? (
-            <>
-              {" "}
-              <button
-                type="button"
-                className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
-                onClick={() => {
-                  setMaxKmFilter(null);
-                  setVerifiedOnly(false);
-                }}
-              >
-                Reset
-              </button>
-            </>
-          ) : null}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="w-full text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Distance focus
-          </span>
-          {distanceChips.map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              onClick={() => setMaxKmFilter(c.km)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                maxKmFilter === c.km
-                  ? "bg-[var(--accent)] text-white"
-                  : "border border-zinc-300 bg-white text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setVerifiedFilter(!verifiedOnly)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-              verifiedOnly
-                ? "bg-emerald-700 text-white"
-                : "border border-zinc-300 bg-white text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
-            }`}
-          >
-            Verified photos only {tier !== "plus" ? "(Plus)" : ""}
-          </button>
-          {diag ? (
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              ~{diag.passedFilters} in stack
-            </span>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200/70 pt-3 dark:border-zinc-700/70">
-          {myBoostEndsAt && boostRemainingSec > 0 ? (
-            <p className="text-xs font-medium text-rose-800 dark:text-rose-200">
-              Boost {Math.floor(boostRemainingSec / 60)}:
-              {(boostRemainingSec % 60).toString().padStart(2, "0")} left
-              {boostViews != null ? ` · ~${boostViews} profile views this session` : ""}
-            </p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void startBoost()}
-              className="rounded-full border border-amber-600/50 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-100"
-            >
-              Boost my profile (Plus)
-            </button>
-          )}
-        </div>
-      </div>
       <div className="relative pt-10">
         {nextPeek ? (
           <motion.div
@@ -759,12 +559,6 @@ export function DiscoverStack() {
         displayNameFallback={top.profile.display_name}
         insight={top.insight}
         initialProfile={top.profile}
-      />
-      <PlusUpsellModal
-        open={upsell != null}
-        title={upsell?.title ?? ""}
-        body={upsell?.body ?? ""}
-        onClose={() => setUpsell(null)}
       />
     </div>
   );

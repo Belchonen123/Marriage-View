@@ -76,6 +76,25 @@ async function stopRoom(room: Room | null, extraAudio: HTMLAudioElement[]) {
   }
 }
 
+function classifyMediaError(e: unknown): string {
+  if (!(e instanceof Error)) return "unknown error";
+  const name = e.name;
+  const msg = e.message.toLowerCase();
+  if (name === "NotAllowedError" || msg.includes("permission")) {
+    return "permission denied — allow camera/mic in your browser";
+  }
+  if (name === "NotFoundError" || msg.includes("requested device not found") || msg.includes("no device")) {
+    return "no device found";
+  }
+  if (name === "NotReadableError" || msg.includes("could not start") || msg.includes("in use")) {
+    return "device in use by another app";
+  }
+  if (name === "OverconstrainedError") {
+    return "device doesn't support requested settings";
+  }
+  return e.message || "unknown error";
+}
+
 function ControlBtn({
   onClick,
   disabled,
@@ -160,6 +179,19 @@ export function VideoCall({
   const [reportDetails, setReportDetails] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
   const [reportMsg, setReportMsg] = useState<string | null>(null);
+  const callStartRef = useRef(Date.now());
+
+  const logCallEvent = useCallback(
+    (event: string, detail?: Record<string, unknown>) => {
+      void fetch("/api/call-events", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matchId, event, detail: detail ?? null }),
+      }).catch(() => {});
+    },
+    [matchId],
+  );
 
   const ringing =
     !live &&
@@ -225,25 +257,63 @@ export function VideoCall({
   }, [clearGraceTimer, detachVideoElements]);
 
   const attachLocalMediaAfterJoin = useCallback(
-    async (room: Room, guard: () => boolean, signal?: AbortSignal): Promise<boolean> => {
-      if (!guard() || signal?.aborted || !aliveRef.current) return false;
+    async (
+      room: Room,
+      guard: () => boolean,
+      signal?: AbortSignal,
+    ): Promise<{ cam: boolean; mic: boolean; camError?: string; micError?: string }> => {
+      if (!guard() || signal?.aborted || !aliveRef.current) {
+        return { cam: false, mic: false };
+      }
+
+      let camOk = false;
+      let micOk = false;
+      let camErr: string | undefined;
+      let micErr: string | undefined;
+
       try {
         await room.localParticipant.setCameraEnabled(true);
-        await room.localParticipant.setMicrophoneEnabled(true);
-      } catch {
-        return false;
+        camOk = true;
+      } catch (e) {
+        camErr = classifyMediaError(e);
       }
-      if (!guard() || signal?.aborted || !aliveRef.current) return false;
+
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true);
+        micOk = true;
+      } catch (e) {
+        micErr = classifyMediaError(e);
+      }
+
+      if (!guard() || signal?.aborted || !aliveRef.current) {
+        return { cam: false, mic: false };
+      }
+
       setMicOn(room.localParticipant.isMicrophoneEnabled);
       setCamOn(room.localParticipant.isCameraEnabled);
-      const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
-      pub?.videoTrack?.attach(localRef.current!);
-      if (!guard() || !aliveRef.current) return false;
-      setStatus("Connected");
+      if (camOk && localRef.current) {
+        const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+        pub?.videoTrack?.attach(localRef.current);
+      }
+      if (!guard() || !aliveRef.current) {
+        return { cam: false, mic: false };
+      }
+
+      const anyOk = camOk || micOk;
       setLive(true);
       wasEverLiveRef.current = true;
       onPhaseChange?.("connected");
-      return true;
+
+      if (camOk && micOk) {
+        setStatus("Connected");
+      } else if (anyOk) {
+        const parts: string[] = [];
+        if (!camOk) parts.push(`Camera: ${camErr ?? "unavailable"}`);
+        if (!micOk) parts.push(`Mic: ${micErr ?? "unavailable"}`);
+        setStatus(`Connected — ${parts.join(". ")}`);
+      }
+
+      return { cam: camOk, mic: micOk, camError: camErr, micError: micErr };
     },
     [onPhaseChange],
   );
@@ -253,6 +323,7 @@ export function VideoCall({
     if (!inThisCall()) return;
     const room = roomRef.current;
     if (!room) return;
+    logCallEvent("manual_reconnect");
     revealChrome();
     setReconnectBusy(true);
     setStatus("Reconnecting…");
@@ -274,9 +345,10 @@ export function VideoCall({
       clearGraceTimer();
       setShowRecoverBanner(false);
       setGraceExpired(false);
-      const ok = await attachLocalMediaAfterJoin(room, inThisCall);
-      if (!ok && inThisCall()) {
-        setStatus("Connected but media failed — try Reconnect again");
+      const media = await attachLocalMediaAfterJoin(room, inThisCall);
+      if (!media.cam && !media.mic && inThisCall()) {
+        const reason = media.camError ?? media.micError ?? "unavailable";
+        setStatus(`Connected but media failed: ${reason}`);
       }
     } catch (e) {
       if (inThisCall()) {
@@ -287,12 +359,13 @@ export function VideoCall({
         setReconnectBusy(false);
       }
     }
-  }, [attachLocalMediaAfterJoin, clearGraceTimer, matchId, revealChrome]);
+  }, [attachLocalMediaAfterJoin, clearGraceTimer, logCallEvent, matchId, revealChrome]);
 
   useEffect(() => {
     const mySession = ++sessionGenRef.current;
     callSessionRef.current = mySession;
     userClosingRef.current = false;
+    callStartRef.current = Date.now();
     const isCurrent = () => mySession === sessionGenRef.current;
     aliveRef.current = true;
     wasEverLiveRef.current = false;
@@ -319,13 +392,26 @@ export function VideoCall({
     trackSubscribedHandlerRef.current = onTrackSubscribed;
 
     void (async () => {
-      const res = await fetch("/api/livekit/token", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId }),
-        signal: ac.signal,
-      });
+      logCallEvent("token_requested");
+      let res: Response;
+      try {
+        res = await fetch("/api/livekit/token", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ matchId }),
+          signal: ac.signal,
+        });
+      } catch (e) {
+        if (ac.signal.aborted) return;
+        const msg = e instanceof Error ? e.message : "Network error";
+        logCallEvent("token_failed", { error: msg });
+        if (aliveRef.current && isCurrent()) {
+          setStatus(msg);
+          onPhaseChange?.("error");
+        }
+        return;
+      }
       const data = await res.json().catch(() => ({}));
 
       if (!isCurrent() || ac.signal.aborted) {
@@ -333,10 +419,14 @@ export function VideoCall({
       }
 
       if (!res.ok) {
-        setStatus((data as { error?: string }).error ?? "Could not start video");
+        const errMsg = (data as { error?: string }).error ?? "Could not start video";
+        logCallEvent("token_failed", { status: res.status, error: errMsg });
+        setStatus(errMsg);
         onPhaseChange?.("error");
         return;
       }
+
+      logCallEvent("token_ok", { roomName: (data as { roomName?: string }).roomName });
 
       const room = new Room({
         reconnectPolicy: new DefaultReconnectPolicy(RECONNECT_DELAYS_MS),
@@ -346,11 +436,13 @@ export function VideoCall({
 
       const onReconnecting = () => {
         if (!isCurrent() || !aliveRef.current) return;
+        logCallEvent("reconnecting");
         setStatus("Reconnecting — hang tight");
         revealChrome();
       };
       const onReconnected = () => {
         if (!isCurrent() || !aliveRef.current) return;
+        logCallEvent("reconnected");
         clearGraceTimer();
         setShowRecoverBanner(false);
         setGraceExpired(false);
@@ -367,6 +459,7 @@ export function VideoCall({
         if (!isCurrent() || !aliveRef.current || userClosingRef.current) return;
         if (reason === DisconnectReason.CLIENT_INITIATED) return;
         if (!wasEverLiveRef.current) return;
+        logCallEvent("disconnected", { reason: reason != null ? DisconnectReason[reason] : undefined });
         clearGraceTimer();
         setLive(false);
         setShowRecoverBanner(true);
@@ -398,22 +491,29 @@ export function VideoCall({
           return;
         }
 
+        const connectStart = Date.now();
         await room.connect((data as { url: string }).url, (data as { token: string }).token);
+        logCallEvent("room_connected", { elapsed_ms: Date.now() - connectStart });
 
         if (!isCurrent() || ac.signal.aborted) {
           await stopRoom(room, audioEls);
           return;
         }
 
-        const ok = await attachLocalMediaAfterJoin(room, isCurrent, ac.signal);
-        if (!ok) {
-          await stopRoom(room, audioEls);
-          roomRef.current = null;
-          if (isCurrent() && aliveRef.current && !ac.signal.aborted) {
-            setStatus("Could not start camera or microphone");
-            onPhaseChange?.("error");
+        const media = await attachLocalMediaAfterJoin(room, isCurrent, ac.signal);
+        if (media.cam && media.mic) {
+          logCallEvent("media_ok", { cam: true, mic: true });
+        } else if (isCurrent() && aliveRef.current && !ac.signal.aborted) {
+          logCallEvent("media_failed", {
+            cam: media.cam,
+            mic: media.mic,
+            camError: media.camError,
+            micError: media.micError,
+          });
+          if (!media.cam && !media.mic) {
+            const reason = media.camError ?? media.micError ?? "unavailable";
+            setStatus(`Connected — camera/mic failed: ${reason}`);
           }
-          return;
         }
       } catch (e) {
         if (ac.signal.aborted || !isCurrent()) {
@@ -421,8 +521,10 @@ export function VideoCall({
           roomRef.current = null;
           return;
         }
+        const msg = e instanceof Error ? e.message : "Connection failed";
+        logCallEvent("room_connect_failed", { error: msg });
         if (aliveRef.current) {
-          setStatus(e instanceof Error ? e.message : "Connection failed");
+          setStatus(msg);
           onPhaseChange?.("error");
         }
         await stopRoom(room, audioEls);
@@ -452,10 +554,14 @@ export function VideoCall({
       }
       void stopRoom(room, audioEls);
     };
-  }, [attachLocalMediaAfterJoin, clearGraceTimer, detachVideoElements, matchId, onPhaseChange, revealChrome]);
+  }, [attachLocalMediaAfterJoin, clearGraceTimer, detachVideoElements, logCallEvent, matchId, onPhaseChange, revealChrome]);
 
   async function handleClose() {
     const had = wasEverLiveRef.current;
+    logCallEvent("call_ended", { hadConnected: had, duration_ms: Date.now() - callStartRef.current });
+    if (had) {
+      window.dispatchEvent(new CustomEvent("nexus-call-dropped", { detail: { matchId } }));
+    }
     await teardown();
     onPhaseChange?.("idle");
     onClose({ hadConnected: had });

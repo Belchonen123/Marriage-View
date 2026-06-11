@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { DiscoverSkeleton, DiscoverStack } from "@/components/DiscoverStack";
-import { PremiumFiltersBadge } from "@/components/PremiumFiltersBadge";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -21,9 +20,6 @@ export default async function DiscoverPage() {
           Best compatibility first. Pass or like — mutual likes lead to light chat and real{" "}
           <strong className="font-medium text-zinc-800 dark:text-zinc-200">video dates</strong> on Marriage View.
         </p>
-        <div className="mt-3">
-          <PremiumFiltersBadge />
-        </div>
       </div>
       <Suspense fallback={<DiscoverSkeleton />}>
         <DiscoverStack />
