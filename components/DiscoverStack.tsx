@@ -48,23 +48,18 @@ type DiscoverDiag = {
 function emptyDiscoverActionHints(diag: DiscoverDiag | null): string[] {
   const hints: string[] = [];
   if (diag && diag.droppedDistance > 0) {
-    hints.push("Try widening your distance preference in your profile settings.");
+    hints.push("Widen your max distance in Profile — set it to Worldwide to see everyone.");
   }
   if (diag && diag.droppedAgePrefs > 0) {
-    hints.push("Widen your age preferences in Profile if they’re very narrow.");
-  }
-  if (diag && diag.droppedGenderSeeking > 0) {
-    hints.push(
-      "Discover only shows opposite-gender pairs (your gender vs. who you seek, both ways). For testing, add another onboarded account with the matching pair—for example woman ↔ man.",
-    );
+    hints.push("Widen your age range in Profile so more members fall inside it.");
   }
   if (diag && diag.droppedAlreadySwipedOrSelf > 0 && diag.passedFilters === 0) {
-    hints.push("You may have passed or liked everyone currently eligible — check back later.");
+    hints.push("You've already seen everyone who matches you right now. Check back soon.");
   }
   if (!hints.length) {
-    hints.push("Check back later as more members join your area.");
+    hints.push("New members join often — check back soon.");
   }
-  return hints.slice(0, 4);
+  return hints.slice(0, 3);
 }
 
 async function fetchDiscover(opts: {
@@ -244,100 +239,71 @@ export function DiscoverStack() {
   }
 
   if (!top) {
+    const debug =
+      typeof window !== "undefined" &&
+      (process.env.NODE_ENV !== "production" ||
+        new URLSearchParams(window.location.search).has("debug"));
     return (
-      <div className="card-surface border border-zinc-200/80 p-6 text-left dark:border-zinc-700/80">
-        <p className="text-center font-display text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-          No one to show right now
-        </p>
-        <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-          The feed only includes people who pass <strong>all</strong> of these checks:
-        </p>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-          <li>
-            <strong>Finished onboarding</strong> — profile, photo, questionnaire, and “finish” step so{" "}
-            <code className="rounded bg-zinc-200 px-1 text-xs dark:bg-zinc-800">onboarding_complete</code> is true
-          </li>
-          <li>
-            <strong>Gender / seeking</strong> — your “seeking” must match their gender and vice versa (unless someone
-            chose “everyone”)
-          </li>
-          <li>
-            <strong>Age range</strong> — each person’s birth year must fall in the other’s min–max age preference
-          </li>
-          <li>
-            <strong>Distance</strong> — if both of you saved latitude &amp; longitude, you must be within{" "}
-            <em>both</em> of your max-distance settings
-          </li>
-          <li>
-            <strong>Not already liked or passed</strong> — those people are hidden until you run out of new faces
-          </li>
-          <li>
-            <strong>Quiz dealbreakers</strong> — conflicting answers (e.g. children) lower the match score to 0% but
-            people can still appear for testing
-          </li>
-        </ul>
-        <p className="mt-3 text-center text-xs text-zinc-500">
-          Tip: for testing, use two accounts with matching gender/seeking (e.g. woman ↔ man), overlapping ages, and
-          leave lat/lng blank unless you need distance.
-        </p>
-        <div className="mt-4 rounded-xl border border-[var(--accent)]/20 bg-[var(--accent-muted)]/30 px-3 py-2.5 text-left dark:border-[var(--accent)]/25">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">Try this</p>
-          <ul className="mt-1.5 list-inside list-disc space-y-1 text-xs text-zinc-700 dark:text-zinc-300">
-            {emptyDiscoverActionHints(diag).map((h) => (
-              <li key={h}>{h}</li>
-            ))}
-          </ul>
+      <div className="card-surface border border-zinc-200/80 p-6 text-center dark:border-zinc-700/80">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-muted)] text-[var(--accent)]">
+          <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"/>
+          </svg>
         </div>
-        {diag ? (
-          <div className="mt-4 rounded-xl border border-zinc-200 bg-white/80 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-950/80">
-            <p className="font-medium text-zinc-800 dark:text-zinc-200">What the server saw (this account)</p>
-            <ul className="mt-2 space-y-1 text-zinc-600 dark:text-zinc-400">
-              <li>
-                Other users <strong>ready for discover</strong> (onboarding done):{" "}
-                <strong className="text-zinc-900 dark:text-zinc-100">{diag.otherOnboardedInPool}</strong>
-                {diag.otherOnboardedInPool === 0 ? (
-                  <span className="block text-amber-800 dark:text-amber-200">
-                    → No one else has finished onboarding. Each test user must complete profile, photo, quiz, and the
-                    final “finish” step.
-                  </span>
-                ) : null}
-              </li>
-              {diag.droppedAlreadySwipedOrSelf > 0 ? (
-                <li>Removed (already liked or passed): {diag.droppedAlreadySwipedOrSelf}</li>
-              ) : null}
-              {diag.droppedBlocked > 0 ? <li>Removed (blocked): {diag.droppedBlocked}</li> : null}
-              {diag.droppedAgePrefs > 0 ? (
-                <li>
-                  Removed (age preferences): {diag.droppedAgePrefs}{" "}
-                  <span className="text-zinc-500">— widen age min/max on both profiles or fix birth years.</span>
-                </li>
-              ) : null}
-              {diag.droppedDistance > 0 ? (
-                <li>
-                  Removed (distance): {diag.droppedDistance}{" "}
-                  <span className="text-zinc-500">— increase max km or clear lat/lng on both sides.</span>
-                </li>
-              ) : null}
-              {diag.droppedGenderSeeking > 0 ? (
-                <li>
-                  Removed (gender / seeking mismatch): {diag.droppedGenderSeeking}{" "}
-                  <span className="text-zinc-500">
-                    — e.g. woman seeking man only sees men seeking women (or “everyone”).
-                  </span>
-                </li>
-              ) : null}
-            </ul>
-          </div>
-        ) : null}
-        <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
+        <p className="font-display text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+          That&apos;s everyone for now
+        </p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-zinc-600 dark:text-zinc-400">
+          You&apos;ve seen every member who matches your essentials and what you&apos;re looking for. New people join all the
+          time — check back soon.
+        </p>
+
+        <ul className="mx-auto mt-5 max-w-md space-y-1.5 text-left text-sm text-zinc-700 dark:text-zinc-300">
+          {emptyDiscoverActionHints(diag).map((h) => (
+            <li key={h} className="flex items-start gap-2">
+              <span className="mt-0.5 text-[var(--accent)]" aria-hidden>
+                •
+              </span>
+              <span>{h}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
           <button
             type="button"
             onClick={() => void load()}
             className="rounded-full bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[var(--accent-hover)] active:scale-[0.98]"
           >
-            Refresh deck
+            Refresh
           </button>
+          <a
+            href="/onboarding/profile"
+            className="rounded-full border border-zinc-300 px-6 py-2.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Widen my preferences
+          </a>
         </div>
+
+        {debug && diag ? (
+          <details className="mt-6 rounded-xl border border-zinc-200 bg-white/80 p-3 text-left text-xs dark:border-zinc-700 dark:bg-zinc-950/80">
+            <summary className="cursor-pointer font-medium text-zinc-700 dark:text-zinc-200">
+              Debug: what the server saw
+            </summary>
+            <ul className="mt-2 space-y-1 text-zinc-600 dark:text-zinc-400">
+              <li>Ready for Discover: {diag.otherOnboardedInPool}</li>
+              {diag.droppedAlreadySwipedOrSelf > 0 ? (
+                <li>Already liked / passed: {diag.droppedAlreadySwipedOrSelf}</li>
+              ) : null}
+              {diag.droppedBlocked > 0 ? <li>Blocked pair: {diag.droppedBlocked}</li> : null}
+              {diag.droppedAgePrefs > 0 ? <li>Age range mismatch: {diag.droppedAgePrefs}</li> : null}
+              {diag.droppedDistance > 0 ? <li>Outside max distance: {diag.droppedDistance}</li> : null}
+              {diag.droppedGenderSeeking > 0 ? (
+                <li>Gender / seeking mismatch: {diag.droppedGenderSeeking}</li>
+              ) : null}
+            </ul>
+          </details>
+        ) : null}
       </div>
     );
   }
