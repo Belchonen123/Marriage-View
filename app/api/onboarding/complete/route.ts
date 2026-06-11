@@ -88,5 +88,26 @@ export async function POST() {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  // Defensive read-back: confirm the flag actually flipped. If a trigger
+  // or RLS policy silently reverts the write (this happened once with
+  // migration 026 — see migration 028), we want to fail here instead of
+  // returning 200 and stranding the user at Discover with "Finish
+  // onboarding first."
+  const { data: verify } = await admin
+    .from("profiles")
+    .select("onboarding_complete")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!verify?.onboarding_complete) {
+    return NextResponse.json(
+      {
+        error:
+          "We couldn't save your onboarding status. Apply migration 028_fix_profiles_lock_trigger.sql in Supabase, then try again. If this keeps happening, WhatsApp Ben at (646) 504-4236.",
+      },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({ ok: true });
 }
