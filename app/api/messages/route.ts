@@ -70,10 +70,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  const { data: senderProfile } = await admin
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .maybeSingle();
+  const senderName =
+    (senderProfile?.display_name as string | null | undefined)?.trim() || "Your match";
+
   void sendWebPushToUser(admin, recipientId, {
-    title: "New message",
+    type: "message",
+    title: senderName,
     body: (text.trim().slice(0, 140) || "New message") as string,
     url: `/chat/${matchId}`,
+    tag: `msg-${matchId}`,
   }).catch(() => {});
 
   return NextResponse.json({ ok: true, message: inserted });
