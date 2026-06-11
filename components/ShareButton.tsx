@@ -19,7 +19,32 @@ function appUrl(): string {
 }
 
 function shareText(url: string): string {
-  return `Try Marriage View — real video dates for people actually looking to get married. Free 💍\n${url}`;
+  return [
+    "Marriage View — video dating for people actually looking to get married. Free 💍",
+    "",
+    "Used to be Shidduch View. Now upgraded.",
+    "",
+    `👉 ${url}`,
+    "",
+    "Setup (90 seconds):",
+    "• iPhone: open in Safari → Share → Add to Home Screen → tap \"Enable\" alerts.",
+    "• Android: open the link → tap \"Enable\" alerts.",
+    "",
+    "Your phone will ring when a match starts a video date.",
+  ].join("\n");
+}
+
+/** Try to fetch /share-flyer.jpg as a File for navigator.share. Returns null if not present. */
+async function loadFlyerFile(): Promise<File | null> {
+  try {
+    const res = await fetch("/share-flyer.jpg", { cache: "force-cache" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (blob.size < 1024) return null;
+    return new File([blob], "marriage-view.jpg", { type: blob.type || "image/jpeg" });
+  } catch {
+    return null;
+  }
 }
 
 export function ShareButton({
@@ -39,7 +64,25 @@ export function ShareButton({
     const text = shareText(url);
 
     if (canNativeShare) {
+      // Try richest variant first: text + image file. Falls back to text-only if
+      // the platform can't share files (most desktop, some Android versions).
+      const flyer = await loadFlyerFile();
       try {
+        if (
+          flyer &&
+          typeof (navigator as Navigator & { canShare?: (d: ShareData) => boolean }).canShare ===
+            "function" &&
+          (navigator as Navigator & { canShare: (d: ShareData) => boolean }).canShare({
+            files: [flyer],
+            text,
+            url,
+            title: "Marriage View",
+          })
+        ) {
+          await navigator.share({ files: [flyer], text, url, title: "Marriage View" });
+          track("share_clicked", { method: "native_with_image", placement, app: appName });
+          return;
+        }
         await navigator.share({ title: "Marriage View", text, url });
         track("share_clicked", { method: "native", placement, app: appName });
         return;

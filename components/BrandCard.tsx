@@ -6,6 +6,9 @@ import { track } from "@/lib/analytics";
 const DEFAULT_EMAIL = "belchonen18@gmail.com";
 const DEFAULT_PHONE = "+16465044236";
 const DEFAULT_PHONE_DISPLAY = "(646) 504-4236";
+const DEFAULT_WHATSAPP =
+  "https://wa.me/16465044236?text=" +
+  encodeURIComponent("Hi Ben — saw Marriage View. ");
 
 type Placement = "landing_footer" | "post_date" | "waiting_room";
 
@@ -68,13 +71,25 @@ export function BrandCard({
 
   if (variant === "compact") {
     return (
-      <div ref={ref} className="mt-6 flex w-full justify-center px-4 text-center">
+      <div
+        ref={ref}
+        className="mt-6 flex w-full flex-col items-center gap-1 px-4 text-center"
+      >
         <a
           href={href}
           onClick={onClick}
           className="text-xs leading-relaxed text-zinc-500 underline-offset-4 hover:underline dark:text-zinc-400"
         >
           Built and run with AI by Ben Elchonen — see what AI can build for your business →
+        </a>
+        <a
+          href={DEFAULT_WHATSAPP}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onClick}
+          className="text-[11px] font-medium text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-300"
+        >
+          WhatsApp Ben · {DEFAULT_PHONE_DISPLAY}
         </a>
       </div>
     );
@@ -96,13 +111,24 @@ export function BrandCard({
           Free for the community, always.
         </p>
       ) : null}
-      <a
-        href={href}
-        onClick={onClick}
-        className="mt-1 inline-flex items-center gap-1 rounded-full border border-zinc-300 px-4 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800/50"
-      >
-        Free consultation →
-      </a>
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+        <a
+          href={DEFAULT_WHATSAPP}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onClick}
+          className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800"
+        >
+          WhatsApp Ben
+        </a>
+        <a
+          href={href}
+          onClick={onClick}
+          className="inline-flex items-center gap-1 rounded-full border border-zinc-300 px-4 py-1.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800/50"
+        >
+          Email →
+        </a>
+      </div>
       <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
         <a
           href={`tel:${DEFAULT_PHONE}`}
