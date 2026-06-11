@@ -103,7 +103,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          "We couldn't save your onboarding status. Apply migration 028_fix_profiles_lock_trigger.sql in Supabase, then try again. If this keeps happening, WhatsApp Ben at (646) 504-4236.",
+          "We couldn't save your onboarding status. Apply migration 029_fix_lock_trigger_security_invoker.sql in Supabase, then try again. If this keeps happening, WhatsApp Ben at (646) 504-4236.",
       },
       { status: 500 },
     );
