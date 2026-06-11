@@ -224,7 +224,10 @@ export default function AdminUserDetailPage() {
               <div>
                 <dt className="text-xs text-zinc-500">Age range / distance</dt>
                 <dd>
-                  {data.profile.age_min}–{data.profile.age_max} · {data.profile.max_distance_km} km
+                  {data.profile.age_min}–{data.profile.age_max} ·{" "}
+                  {data.profile.max_distance_km >= 20000
+                    ? "Worldwide"
+                    : `${data.profile.max_distance_km} km`}
                 </dd>
               </div>
               <div>

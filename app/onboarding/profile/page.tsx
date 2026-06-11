@@ -439,8 +439,12 @@ export default function OnboardingProfilePage() {
           </Field>
         </div>
         <Field
-          label={`Max distance (km)${maxKmForDisplay != null ? ` — ≈ ${kmToMiRounded(maxKmForDisplay)} mi` : ""}`}
-          hint="Stored in kilometers (~miles shown for reference). Used when you and the other person both have a precise location; otherwise discovery may not filter by distance."
+          label={
+            maxKmForDisplay != null && maxKmForDisplay >= 20000
+              ? "Max distance — Worldwide 🌍"
+              : `Max distance (km)${maxKmForDisplay != null ? ` — ≈ ${kmToMiRounded(maxKmForDisplay)} mi` : ""}`
+          }
+          hint="Set to 20000 for Worldwide. Used when you and the other person both have a precise location; otherwise discovery may not filter by distance."
         >
           <input
             type="number"
