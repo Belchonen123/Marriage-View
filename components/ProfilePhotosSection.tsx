@@ -9,7 +9,7 @@ import {
 } from "@/lib/profile-photos";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 
 function isLikelyStorageObjectPath(name: string): boolean {
   return name.length > 0 && !name.includes("://") && name.includes("/");
@@ -41,6 +41,40 @@ export function ProfilePhotosSection({
   const onPhotosChangeRef = useRef(onPhotosChange);
   onPhotosChangeRef.current = onPhotosChange;
 
+  // Reusable: fetch signed URLs for the current user's photos. Used on
+  // mount AND after each successful upload — without this, after-upload
+  // photos rendered as broken images because we were appending the
+  // (now-dead) public bucket URL instead of getting a fresh signed URL.
+  const refreshSignedPhotos = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    try {
+      const res = await fetch("/api/photos/sign", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userIds: [user.id] }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        photos?: Record<string, string[]>;
+        error?: string;
+      };
+      if (!res.ok) {
+        setMsg(data.error ?? "Could not load photos.");
+        return null;
+      }
+      const next = normalizePhotoUrls(data.photos?.[user.id] ?? []);
+      setUrls(next);
+      onPhotosChangeRef.current?.(next);
+      return next;
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Could not load photos.");
+      return null;
+    }
+  }, [supabase]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -48,37 +82,16 @@ export function ProfilePhotosSection({
         data: { user },
       } = await supabase.auth.getUser();
       if (!user || cancelled) return;
-      // Photos live in a private bucket; ask the server for signed URLs
-      // instead of reading the public-URL strings stored in profiles.photo_urls.
-      try {
-        const res = await fetch("/api/photos/sign", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userIds: [user.id] }),
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          photos?: Record<string, string[]>;
-          error?: string;
-        };
-        if (cancelled) return;
-        if (!res.ok) {
-          setMsg(data.error ?? "Could not load photos.");
-          setLoading(false);
-          return;
-        }
-        const initial = normalizePhotoUrls(data.photos?.[user.id] ?? []);
-        setUrls(initial);
-        onPhotosChangeRef.current?.(initial);
-      } catch (e) {
-        if (!cancelled) setMsg(e instanceof Error ? e.message : "Could not load photos.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      await refreshSignedPhotos();
+      if (!cancelled) setLoading(false);
     })();
     return () => {
+      // refreshSignedPhotos intentionally NOT in deps — we want load-once
+      // behavior on mount. Re-fetches after upload/delete are triggered
+      // explicitly from those handlers.
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
   async function uploadFiles(fileList: FileList | null) {
@@ -146,6 +159,10 @@ export function ProfilePhotosSection({
           setMsg(upErr.message);
           break;
         }
+        // Bucket is private — the legacy "public URL" string is only used
+        // as a path reference now (storagePathFromProfilePhotoUrl strips it
+        // back to a bucket path). Store it in profiles.photo_urls; we will
+        // resolve to fresh signed URLs for display via refreshSignedPhotos.
         const { data: pub } = supabase.storage.from("profile-photos").getPublicUrl(path);
         const next = [...acc, pub.publicUrl];
         const { error } = await supabase.from("profiles").update({ photo_urls: next }).eq("id", user.id);
@@ -153,9 +170,12 @@ export function ProfilePhotosSection({
           setMsg(error.message);
           break;
         }
-        setUrls(next);
-        onPhotosChangeRef.current?.(next);
       }
+      // After the upload loop, re-fetch signed URLs so the newly uploaded
+      // photos actually render (the public URL above doesn't fetch because
+      // the bucket is private). This also flips onPhotosChange with the
+      // current count so the parent's Finish button enables.
+      await refreshSignedPhotos();
     } finally {
       setUploading(false);
       setUploadProgress(null);
@@ -201,8 +221,8 @@ export function ProfilePhotosSection({
     const { error } = await supabase.from("profiles").update({ photo_urls: next }).eq("id", user.id);
     if (error) setMsg(error.message);
     else {
-      setUrls(next);
-      onPhotosChangeRef.current?.(next);
+      // Re-sign remaining photos so they keep rendering after a delete.
+      await refreshSignedPhotos();
     }
   }
 
