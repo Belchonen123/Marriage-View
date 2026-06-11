@@ -59,6 +59,10 @@ export default function AdminContentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [autoThreshold, setAutoThreshold] = useState(3);
+  const [autoRequireBio, setAutoRequireBio] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoMsg, setAutoMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,6 +87,45 @@ export default function AdminContentPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function runAutoSuspend() {
+    if (
+      !window.confirm(
+        `Auto-suspend every user with at least ${autoThreshold} flagged item${autoThreshold > 1 ? "s" : ""}${
+          autoRequireBio ? " AND at least one bio/display-name hit" : ""
+        }? This blocks them from matching for everyone.`,
+      )
+    ) {
+      return;
+    }
+    setAutoBusy(true);
+    setAutoMsg(null);
+    setError(null);
+    try {
+      const res = await adminApiFetch("/api/admin/content-flags/auto-suspend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threshold: autoThreshold,
+          requireBio: autoRequireBio,
+          flags: filter === "all" ? undefined : [filter],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Auto-suspend failed");
+        return;
+      }
+      setAutoMsg(
+        `Suspended ${data.suspendedCount as number} member${
+          (data.suspendedCount as number) === 1 ? "" : "s"
+        }.`,
+      );
+      void load();
+    } finally {
+      setAutoBusy(false);
+    }
+  }
 
   async function toggleSuspend(userId: string, current: boolean) {
     setBusyId(userId);
@@ -119,8 +162,61 @@ export default function AdminContentPage() {
         <p className="mt-1 text-xs text-zinc-500">
           Scanned: {scanned.profiles.toLocaleString()} profiles ·{" "}
           {scanned.messages.toLocaleString()} recent messages. Flags are heuristic — review before
-          acting.
+          acting.{" "}
+          <Link
+            href="/admin/moderation-words"
+            className="text-rose-700 underline-offset-2 hover:underline dark:text-rose-400"
+          >
+            Edit the custom word list →
+          </Link>
         </p>
+      </div>
+
+      <div className="rounded-xl border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-800/60 dark:bg-amber-950/30">
+        <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+          Auto-suspend bulk action
+        </p>
+        <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-100/80">
+          Suspends every user who meets the threshold in the current scan. Auditable; reversible
+          one-by-one from the user&apos;s profile.
+        </p>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="text-xs font-medium text-amber-900 dark:text-amber-100">
+            Min flags per user
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={autoThreshold}
+              onChange={(e) => setAutoThreshold(Math.max(1, Math.min(20, Number(e.target.value))))}
+              className="ml-2 w-16 rounded-lg border border-amber-300 bg-white px-2 py-1 text-sm dark:border-amber-700/60 dark:bg-zinc-950"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs font-medium text-amber-900 dark:text-amber-100">
+            <input
+              type="checkbox"
+              checked={autoRequireBio}
+              onChange={(e) => setAutoRequireBio(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Require at least one bio / display-name hit
+          </label>
+          <button
+            type="button"
+            disabled={autoBusy}
+            onClick={() => void runAutoSuspend()}
+            className="rounded-full bg-red-700 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-800 disabled:opacity-50"
+          >
+            {autoBusy
+              ? "Running…"
+              : filter === "all"
+                ? "Auto-suspend matching users"
+                : `Auto-suspend (${filter} only)`}
+          </button>
+          {autoMsg ? (
+            <span className="text-xs font-medium text-amber-900 dark:text-amber-100">{autoMsg}</span>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

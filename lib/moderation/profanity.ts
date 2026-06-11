@@ -72,14 +72,42 @@ export type ModerationHit = {
   match: string;
 };
 
-function buildWordRegex(words: readonly string[]): RegExp {
-  // \b...\b around each word; escape any spaces in multi-word entries.
+function buildWordRegex(words: readonly string[]): RegExp | null {
+  if (!words.length) return null;
   const parts = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   return new RegExp(`\\b(?:${parts.join("|")})\\b`, "i");
 }
 
-const PROFANITY_RE = buildWordRegex(PROFANITY_WORDS);
-const SEXUAL_RE = buildWordRegex(SEXUAL_WORDS);
+const BUILTIN_PROFANITY_RE = buildWordRegex(PROFANITY_WORDS);
+const BUILTIN_SEXUAL_RE = buildWordRegex(SEXUAL_WORDS);
+
+/**
+ * Custom admin-added word regexes (set by lib/moderation/load-custom-words.ts
+ * before scanning, then read by scanForModeration). They're scanned IN ADDITION
+ * to the built-in word lists.
+ */
+let customProfanityRe: RegExp | null = null;
+let customSexualRe: RegExp | null = null;
+let customContactRe: RegExp | null = null;
+
+export function setCustomModerationWords(words: {
+  profanity?: string[];
+  sexual?: string[];
+  contact?: string[];
+}): void {
+  customProfanityRe = buildWordRegex(words.profanity ?? []);
+  customSexualRe = buildWordRegex(words.sexual ?? []);
+  customContactRe = buildWordRegex(words.contact ?? []);
+}
+
+function firstMatch(text: string, ...patterns: (RegExp | null)[]): string | null {
+  for (const p of patterns) {
+    if (!p) continue;
+    const m = text.match(p);
+    if (m) return m[0];
+  }
+  return null;
+}
 
 /** Returns at most one hit per flag (we just need to know it's suspect). */
 export function scanForModeration(text: string | null | undefined): ModerationHit[] {
@@ -87,11 +115,11 @@ export function scanForModeration(text: string | null | undefined): ModerationHi
   const hits: ModerationHit[] = [];
   const lower = text.toLowerCase();
 
-  const p = lower.match(PROFANITY_RE);
-  if (p) hits.push({ flag: "profanity", match: p[0] });
+  const p = firstMatch(lower, BUILTIN_PROFANITY_RE, customProfanityRe);
+  if (p) hits.push({ flag: "profanity", match: p });
 
-  const s = lower.match(SEXUAL_RE);
-  if (s) hits.push({ flag: "sexual", match: s[0] });
+  const s = firstMatch(lower, BUILTIN_SEXUAL_RE, customSexualRe);
+  if (s) hits.push({ flag: "sexual", match: s });
 
   const phone = text.match(PHONE_RE);
   if (phone) hits.push({ flag: "contact", match: phone[0].trim() });
@@ -99,6 +127,8 @@ export function scanForModeration(text: string | null | undefined): ModerationHi
   if (email) hits.push({ flag: "contact", match: email[0] });
   const handle = text.match(HANDLE_RE);
   if (handle) hits.push({ flag: "contact", match: handle[0] });
+  const customContact = firstMatch(lower, customContactRe);
+  if (customContact) hits.push({ flag: "contact", match: customContact });
 
   return hits;
 }

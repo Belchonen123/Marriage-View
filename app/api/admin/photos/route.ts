@@ -21,22 +21,49 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  let query = admin
-    .from("profiles")
-    .select(
-      "id, display_name, birth_year, city, gender, photo_urls, photo_verification_status, admin_suspended, onboarding_complete, created_at",
-      { count: "exact" },
-    )
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  const fullCols =
+    "id, display_name, birth_year, city, gender, photo_urls, photo_verification_status, admin_suspended, onboarding_complete, created_at";
+  const fallbackCols =
+    "id, display_name, birth_year, city, gender, photo_urls, photo_verification_status, onboarding_complete, created_at";
 
-  if (filter === "unverified") {
-    query = query.neq("photo_verification_status", "verified");
-  } else if (filter === "suspended") {
-    query = query.eq("admin_suspended", true);
+  function isMissingSuspendedColumn(msg: string | undefined): boolean {
+    const m = (msg ?? "").toLowerCase();
+    return m.includes("admin_suspended") && (m.includes("does not exist") || m.includes("could not find"));
   }
 
-  const { data, error, count } = await query;
+  let useFallback = false;
+
+  let q1 = admin
+    .from("profiles")
+    .select(fullCols, { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (filter === "unverified") q1 = q1.neq("photo_verification_status", "verified");
+  if (filter === "suspended") q1 = q1.eq("admin_suspended", true);
+
+  type AnyRow = Record<string, unknown>;
+  type AnyResult = { data: AnyRow[] | null; error: { message: string } | null; count: number | null };
+
+  let result: AnyResult = (await q1) as unknown as AnyResult;
+  if (result.error && isMissingSuspendedColumn(result.error.message)) {
+    useFallback = true;
+    if (filter === "suspended") {
+      return NextResponse.json({
+        items: [],
+        total: 0,
+        warning: "Suspension column not yet migrated. Apply migration 018_admin_suspension.sql in Supabase.",
+      });
+    }
+    let q2 = admin
+      .from("profiles")
+      .select(fallbackCols, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (filter === "unverified") q2 = q2.neq("photo_verification_status", "verified");
+    result = (await q2) as unknown as AnyResult;
+  }
+
+  const { data, error, count } = result;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   let items =
@@ -48,7 +75,9 @@ export async function GET(req: Request) {
       gender: (row.gender as string | null) ?? null,
       photo_urls: ((row.photo_urls as string[] | null) ?? []) as string[],
       photo_verification_status: (row.photo_verification_status as string | null) ?? "none",
-      admin_suspended: (row.admin_suspended as boolean | null) ?? false,
+      admin_suspended: useFallback
+        ? false
+        : ((row.admin_suspended as boolean | null) ?? false),
       onboarding_complete: (row.onboarding_complete as boolean | null) ?? false,
       created_at: row.created_at as string,
     })) ?? [];

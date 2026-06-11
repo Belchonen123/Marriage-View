@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { loadCustomModerationWords } from "@/lib/moderation/load-custom-words";
 import {
   type ModerationFlag,
   previewWithHit,
@@ -51,18 +52,33 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  const [profilesRes, messagesRes] = await Promise.all([
-    admin
+  await loadCustomModerationWords(admin);
+
+  function isMissingSuspendedColumn(msg: string | undefined): boolean {
+    const m = (msg ?? "").toLowerCase();
+    return m.includes("admin_suspended") && (m.includes("does not exist") || m.includes("could not find"));
+  }
+
+  type AnyProfileRes = { data: Record<string, unknown>[] | null; error: { message: string } | null };
+  let profilesRes = (await admin
+    .from("profiles")
+    .select("id, display_name, bio, admin_suspended, created_at")
+    .order("created_at", { ascending: false })
+    .limit(2000)) as unknown as AnyProfileRes;
+
+  if (profilesRes.error && isMissingSuspendedColumn(profilesRes.error.message)) {
+    profilesRes = (await admin
       .from("profiles")
-      .select("id, display_name, bio, admin_suspended, created_at")
+      .select("id, display_name, bio, created_at")
       .order("created_at", { ascending: false })
-      .limit(2000),
-    admin
-      .from("messages")
-      .select("id, match_id, sender_id, body, created_at")
-      .order("created_at", { ascending: false })
-      .limit(messageLimit),
-  ]);
+      .limit(2000)) as unknown as AnyProfileRes;
+  }
+
+  const messagesRes = await admin
+    .from("messages")
+    .select("id, match_id, sender_id, body, created_at")
+    .order("created_at", { ascending: false })
+    .limit(messageLimit);
 
   if (profilesRes.error) {
     return NextResponse.json({ error: profilesRes.error.message }, { status: 500 });
