@@ -1,15 +1,29 @@
 "use client";
 
 import { urlBase64ToUint8Array } from "@/lib/vapid";
-import { isPushDesired, setPushDesired } from "@/lib/notification-prefs";
+import { setPushDesired } from "@/lib/notification-prefs";
 import { useEffect, useState } from "react";
 
-const DISMISS_KEY = "mv:call-alerts-prompt-dismissed";
+const SESSION_HIDE_KEY = "mv:call-alerts-prompt-hidden-this-session";
 
 function vapidPublicKey(): string | undefined {
   return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 }
 
+/**
+ * Aggressive call-alerts prompt. Mounts globally on every signed-in page.
+ *
+ * Visible whenever ALL of:
+ *   - browser supports notifications + service workers
+ *   - server has a VAPID public key set
+ *   - browser permission is "default" (we haven't asked yet, or user dismissed permission prompt)
+ *   - user hasn't tapped "Not now" THIS session
+ *
+ * After "Not now" we hide only for the current session (sessionStorage), not forever.
+ * After "Don't allow" in the browser permission dialog we stop forever, per spec.
+ *
+ * Style: pinned to the bottom of the viewport, hard to miss.
+ */
 export function CallAlertsPrompt() {
   const [visible, setVisible] = useState(false);
   const [working, setWorking] = useState(false);
@@ -21,9 +35,8 @@ export function CallAlertsPrompt() {
     if (typeof Notification === "undefined") return;
     if (!vapidPublicKey()) return;
     if (Notification.permission !== "default") return;
-    if (!isPushDesired()) return;
     try {
-      if (localStorage.getItem(DISMISS_KEY) === "1") return;
+      if (sessionStorage.getItem(SESSION_HIDE_KEY) === "1") return;
     } catch {
       /* private mode */
     }
@@ -34,7 +47,7 @@ export function CallAlertsPrompt() {
 
   const dismiss = () => {
     try {
-      localStorage.setItem(DISMISS_KEY, "1");
+      sessionStorage.setItem(SESSION_HIDE_KEY, "1");
     } catch {
       /* ignore */
     }
@@ -47,14 +60,9 @@ export function CallAlertsPrompt() {
     try {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") {
-        // Never re-prompt after denial.
         if (perm === "denied") {
+          // Browser will never re-prompt; stop bothering the user.
           setPushDesired(false);
-          try {
-            localStorage.setItem(DISMISS_KEY, "1");
-          } catch {
-            /* ignore */
-          }
         }
         setVisible(false);
         return;
@@ -80,11 +88,6 @@ export function CallAlertsPrompt() {
         return;
       }
       setPushDesired(true);
-      try {
-        localStorage.setItem(DISMISS_KEY, "1");
-      } catch {
-        /* ignore */
-      }
       setVisible(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't enable call alerts.");
@@ -94,37 +97,38 @@ export function CallAlertsPrompt() {
   };
 
   return (
-    <div className="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 dark:border-rose-900/40 dark:bg-rose-950/30">
-      <div className="flex items-start gap-3">
-        <span className="text-2xl" aria-hidden>🔔</span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-rose-900 dark:text-rose-100">
-            Get rung when a match calls you
-          </p>
-          <p className="mt-1 text-xs text-rose-900/80 dark:text-rose-100/80">
-            Enable call alerts so your phone rings even when Marriage View is closed.
-          </p>
-          {error ? (
-            <p className="mt-2 text-xs text-red-700 dark:text-red-300" role="alert">
-              {error}
+    <div className="pointer-events-none fixed inset-x-0 bottom-3 z-[80] flex justify-center px-3 sm:bottom-6">
+      <div className="pointer-events-auto flex w-full max-w-md flex-col gap-2 rounded-2xl border border-rose-200/80 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-rose-900/40 dark:bg-zinc-900/95">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl" aria-hidden>🔔</span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+              Get rung for messages & calls
             </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+            <p className="truncate text-xs text-zinc-600 dark:text-zinc-400">
+              Marriage View won&apos;t work for you without this.
+            </p>
+            {error ? (
+              <p className="mt-1 truncate text-xs text-red-600 dark:text-red-400" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={() => void enable()}
             disabled={working}
-            className="rounded-full bg-rose-700 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-rose-800 disabled:opacity-60"
+            className="shrink-0 rounded-full bg-rose-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-800 disabled:opacity-60"
           >
-            {working ? "Enabling…" : "Enable"}
+            {working ? "…" : "Enable"}
           </button>
           <button
             type="button"
             onClick={dismiss}
-            className="rounded-full border border-rose-300 px-3 py-2 text-xs font-medium text-rose-900 dark:border-rose-800/60 dark:text-rose-100"
+            aria-label="Dismiss"
+            className="shrink-0 rounded-full p-2 text-sm opacity-60 hover:opacity-100"
           >
-            Not now
+            ✕
           </button>
         </div>
       </div>
