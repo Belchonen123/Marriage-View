@@ -11,6 +11,7 @@ import {
   setPushDesired,
   setSoundEnabled,
 } from "@/lib/notification-prefs";
+import { PhoneVerificationSection } from "@/components/PhoneVerificationSection";
 import { PhotoVerificationSection } from "@/components/PhotoVerificationSection";
 import { DiscoverSelfPreview } from "@/components/DiscoverSelfPreview";
 import { ProfileStrengthSection } from "@/components/ProfileStrengthSection";
@@ -490,6 +491,8 @@ export default function SettingsPage() {
           </button>
         </div>
       </section>
+
+      <PhoneVerificationSection />
 
       <section
         id="reflections-nudges"

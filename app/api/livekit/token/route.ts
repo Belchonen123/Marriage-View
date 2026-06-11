@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPairBlocked } from "@/lib/pair-blocked";
 import { sendWebPushToUser } from "@/lib/push-notify";
+import { sendSms } from "@/lib/twilio";
 import { AccessToken } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
 
@@ -94,6 +95,25 @@ export async function POST(req: Request) {
       url: `/chat/${matchId}?video=1`,
       tag: `call-${matchId}`,
     }).catch(() => {
+      /* fire-and-forget */
+    });
+
+    void (async () => {
+      const { data: calleeRow } = await admin
+        .from("profiles")
+        .select("phone_number, phone_verified_at")
+        .eq("id", calleeId)
+        .maybeSingle();
+      const phone = calleeRow?.phone_number as string | null;
+      const verified = Boolean(calleeRow?.phone_verified_at);
+      if (!phone || !verified) return;
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL ?? "https://www.marriageview.app";
+      await sendSms(
+        phone,
+        `${callerDisplayName} is starting a video date on Marriage View. Tap to join: ${appUrl}/chat/${matchId}?video=1`,
+      );
+    })().catch(() => {
       /* fire-and-forget */
     });
   }
