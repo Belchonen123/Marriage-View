@@ -312,9 +312,7 @@ export function CoachChatCore({
 
       {configured === false ? (
         <div className="rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-100 sm:text-sm">
-          Add{" "}
-          <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">OPENAI_API_KEY</code> to your environment and
-          restart.
+          The dating coach isn&apos;t ready yet. Check back soon.
         </div>
       ) : null}
 

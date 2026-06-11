@@ -240,7 +240,7 @@ export default function OnboardingProfilePage() {
     }
     if (!data) {
       setMsg(
-        "Could not save your profile. Often this means the database is missing permission to update your row (RLS). Check Supabase → profiles → Policies for insert/update on your own id, or sign out and back in.",
+        "We couldn't save your profile. Please try again, or sign out and back in. If this keeps happening, WhatsApp Ben at (646) 504-4236.",
       );
       return;
     }

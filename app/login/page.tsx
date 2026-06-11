@@ -22,10 +22,8 @@ function friendlyAuthError(err: unknown): string {
         : String(err);
   if (/failed to fetch|networkerror|load failed|typeerror.*fetch/i.test(raw)) {
     return (
-      "Could not reach the sign-in service. Check your network, confirm NEXT_PUBLIC_SUPABASE_URL and " +
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local match your Supabase project, and in the Supabase " +
-      "Dashboard that the project is running (not paused). If you use a VPN or strict firewall, try again on another network. " +
-      "Open /api/health/supabase in this app to test whether the server can reach your project."
+      "Could not reach the sign-in service. Check your connection and try again. " +
+      "If this keeps happening, WhatsApp Ben at (646) 504-4236."
     );
   }
   return raw;
@@ -265,14 +263,22 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-8 text-center text-xs text-zinc-500">
-            By continuing you agree to use this prototype responsibly.
+            By continuing you agree to our{" "}
+            <Link href="/terms" className="font-medium text-[var(--accent)] underline-offset-2 hover:underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="font-medium text-[var(--accent)] underline-offset-2 hover:underline">
+              Privacy
+            </Link>
+            .
           </p>
           <p className="mt-2 text-center text-xs">
             <Link
               href="/discover"
               className="font-medium text-[var(--accent)] underline-offset-4 hover:underline"
             >
-              I already completed setup →
+              I already have an account →
             </Link>
           </p>
         </div>

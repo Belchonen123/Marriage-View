@@ -140,7 +140,7 @@ export default function SettingsPage() {
   async function submitReport() {
     setMsg(null);
     if (!reportTarget.trim()) {
-      const text = "Enter a user id to report (UUID from admin tools or support).";
+      const text = "Enter the user id of the person you want to report.";
       setMsg(text);
       show(text, "error");
       return;
@@ -326,8 +326,16 @@ export default function SettingsPage() {
         <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-xs text-zinc-600 dark:border-zinc-700/80 dark:bg-zinc-900/40 dark:text-zinc-400">
           <p className="font-medium text-zinc-800 dark:text-zinc-200">Data export &amp; account deletion</p>
           <p className="mt-1">
-            Self-serve export and full account deletion are not available in-app in this build. For requests, use your
-            host&apos;s support channel or administrator.
+            To export your data or delete your account, WhatsApp Ben at{" "}
+            <a
+              href="https://wa.me/16465044236?text=Hi%20Ben%20%E2%80%94%20account%20request%3A%20"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+            >
+              (646) 504-4236
+            </a>{" "}
+            and we&apos;ll handle it for you.
           </p>
         </div>
       </section>
@@ -606,8 +614,7 @@ export default function SettingsPage() {
       <section id="report-someone" className="card-surface space-y-3 border border-zinc-200/80 p-5 dark:border-zinc-700/80 scroll-mt-24">
         <h2 className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50">Report someone</h2>
         <p className="text-xs text-zinc-500">
-          Paste the other person&apos;s user id (UUID). In production, this would usually be prefilled from their
-          profile or chat.
+          Paste the user id of the person you want to report. You can copy it from their profile.
         </p>
         <details className="rounded-lg border border-zinc-200/80 bg-zinc-50/50 px-3 py-2 text-xs dark:border-zinc-700/80 dark:bg-zinc-900/30">
           <summary className="cursor-pointer font-medium text-zinc-700 dark:text-zinc-300">
