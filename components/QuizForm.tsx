@@ -3,7 +3,10 @@
 import { createClient } from "@/lib/supabase/client";
 import type { AnswerType, QuestionRow } from "@/lib/types";
 import { useToast } from "@/components/ToastProvider";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+
+const CHECKPOINT_SS_KEY = "mv:quiz-checkpoint-shown";
 
 type Answers = Record<string, unknown>;
 
@@ -36,6 +39,7 @@ export function QuizForm({
   initialQuestionId?: string | null;
 }) {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const { show } = useToast();
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [answers, setAnswers] = useState<Answers>({});
@@ -43,6 +47,14 @@ export function QuizForm({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  const [checkpointShown, setCheckpointShown] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return sessionStorage.getItem(CHECKPOINT_SS_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const advancingRef = useRef(false);
   const appliedInitialQuestionRef = useRef(false);
   const questionHeadingId = useId();
@@ -86,6 +98,7 @@ export function QuizForm({
     if (!initialQuestionId?.trim() || !questions.length || appliedInitialQuestionRef.current) return;
     const idx = questions.findIndex((x) => x.id === initialQuestionId.trim());
     if (idx >= 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStep(idx);
       appliedInitialQuestionRef.current = true;
     }
@@ -93,10 +106,67 @@ export function QuizForm({
 
   const total = questions.length;
   const q = total > 0 ? questions[Math.min(step, total - 1)] : null;
-  const progress = total > 0 ? ((step + 1) / total) * 100 : 0;
   const needsManualNext = q
     ? !isAutoAdvanceType(q) || (isAutoAdvanceType(q) && answerIsComplete(q, answers[q.id]))
     : false;
+
+  // Required vs optional bookkeeping for the two-phase progress bar
+  // and the post-essentials checkpoint.
+  const requiredQuestions = useMemo(
+    () => questions.filter((x) => x.required),
+    [questions],
+  );
+  const optionalQuestions = useMemo(
+    () => questions.filter((x) => !x.required),
+    [questions],
+  );
+  const lastRequiredIndex = useMemo(() => {
+    let last = -1;
+    questions.forEach((x, i) => {
+      if (x.required) last = i;
+    });
+    return last;
+  }, [questions]);
+
+  const requiredIdSet = useMemo(
+    () => new Set(requiredQuestions.map((x) => x.id)),
+    [requiredQuestions],
+  );
+  const answeredIds = useMemo(() => Object.keys(answers), [answers]);
+  const essentialsDone = useMemo(
+    () => answeredIds.filter((id) => requiredIdSet.has(id)).length,
+    [answeredIds, requiredIdSet],
+  );
+  const bonusDone = useMemo(
+    () => answeredIds.filter((id) => !requiredIdSet.has(id)).length,
+    [answeredIds, requiredIdSet],
+  );
+
+  const isInEssentials = q ? q.required : true;
+  const progress = isInEssentials
+    ? requiredQuestions.length > 0
+      ? (essentialsDone / requiredQuestions.length) * 100
+      : 0
+    : optionalQuestions.length > 0
+      ? (bonusDone / optionalQuestions.length) * 100
+      : 0;
+
+  // If the user re-enters on a bonus-phase question (e.g. via ?q=<id>),
+  // mark the checkpoint as seen so we don't ambush them with it mid-flow.
+  // Lazy state init already handled the sessionStorage read; this handles
+  // the deep-link case where the bonus step is set but storage was clear.
+  useEffect(() => {
+    if (!questions.length || lastRequiredIndex < 0) return;
+    if (step > lastRequiredIndex && !checkpointShown) {
+      try {
+        sessionStorage.setItem(CHECKPOINT_SS_KEY, "1");
+      } catch {
+        /* ignore */
+      }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCheckpointShown(true);
+    }
+  }, [questions.length, lastRequiredIndex, step, checkpointShown]);
 
   const persistAndGoNext = useCallback(
     async (merged: Answers, currentQ: QuestionRow) => {
@@ -141,6 +211,34 @@ export function QuizForm({
         advancingRef.current = false;
         return;
       }
+
+      // If the user just answered the last required question, pause on
+      // a checkpoint card instead of advancing straight into the bonus
+      // round. Only shows once per session.
+      let stored = false;
+      try {
+        stored = sessionStorage.getItem(CHECKPOINT_SS_KEY) === "1";
+      } catch {
+        /* ignore */
+      }
+      const justFinishedEssentials =
+        currentQ.required &&
+        idx === lastRequiredIndex &&
+        optionalQuestions.length > 0 &&
+        !stored;
+      if (justFinishedEssentials) {
+        try {
+          sessionStorage.setItem(CHECKPOINT_SS_KEY, "1");
+        } catch {
+          /* ignore */
+        }
+        setCheckpointShown(true);
+        setMessage(null);
+        setSaving(false);
+        advancingRef.current = false;
+        return;
+      }
+
       if (idx < n - 1) {
         setStep(idx + 1);
         setMessage(null);
@@ -151,8 +249,32 @@ export function QuizForm({
       setSaving(false);
       advancingRef.current = false;
     },
-    [questions, show, supabase],
+    [questions, show, supabase, lastRequiredIndex, optionalQuestions.length],
   );
+
+  function dismissCheckpointKeepGoing() {
+    if (lastRequiredIndex >= 0 && optionalQuestions.length > 0) {
+      setStep(lastRequiredIndex + 1);
+    }
+    // The card disappears because we render a different branch when the
+    // current step is past the last required — keep checkpointShown true
+    // so it doesn't re-appear if they navigate back.
+  }
+
+  function finishViaCheckpoint() {
+    router.push("/onboarding/photos");
+  }
+
+  // Show the checkpoint card when the user has finished essentials and
+  // hasn't moved into the bonus phase yet. The `step` cursor is still
+  // pointing at the last required question at this moment because
+  // persistAndGoNext returned early before incrementing.
+  const showingCheckpoint =
+    checkpointShown &&
+    lastRequiredIndex >= 0 &&
+    step <= lastRequiredIndex &&
+    optionalQuestions.length > 0 &&
+    essentialsDone >= requiredQuestions.length;
 
   function handleChoiceChange(newValue: unknown) {
     if (!q) return;
@@ -200,13 +322,56 @@ export function QuizForm({
     return <p className="text-sm text-zinc-500">No questions for this version.</p>;
   }
 
+  const progressLabel = isInEssentials ? "Essentials" : "Bonus";
+  const progressCurrent = isInEssentials ? essentialsDone : bonusDone;
+  const progressTotal = isInEssentials ? requiredQuestions.length : optionalQuestions.length;
+
+  if (showingCheckpoint) {
+    return (
+      <div className="relative">
+        <div className="card-surface motion-card animate-card-in border border-zinc-200/80 p-6 text-center dark:border-zinc-700/80 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
+            Essentials done
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
+            You&apos;re ready to start matching.
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-sm text-zinc-600 dark:text-zinc-400">
+            You can start matching right now, or answer the {optionalQuestions.length} bonus
+            questions to sharpen your compatibility score over time.
+          </p>
+          <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={finishViaCheckpoint}
+              className="motion-tap min-h-11 rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[var(--accent-hover)]"
+            >
+              I&apos;m done — take me matching
+            </button>
+            <button
+              type="button"
+              onClick={dismissCheckpointKeepGoing}
+              className="motion-tap min-h-11 rounded-full border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Keep answering for better matches
+            </button>
+          </div>
+          <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
+            Bonus questions are optional — you can stop anytime.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <div className="sticky top-[max(0px,calc(env(safe-area-inset-top)+4.5rem))] z-20 -mx-1 mb-6 border-b border-zinc-200/80 bg-[var(--background)]/90 px-1 pb-4 pt-1 backdrop-blur-md dark:border-zinc-800/80">
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
-            Question <strong className="text-zinc-900 dark:text-zinc-50">{step + 1}</strong> of{" "}
-            <strong className="text-zinc-900 dark:text-zinc-50">{total}</strong>
+            {progressLabel}{" "}
+            <strong className="text-zinc-900 dark:text-zinc-50">{progressCurrent}</strong> of{" "}
+            <strong className="text-zinc-900 dark:text-zinc-50">{progressTotal}</strong>
           </span>
           {q.section ? (
             <span className="truncate text-xs font-medium text-[var(--accent)]">{q.section}</span>
@@ -215,9 +380,9 @@ export function QuizForm({
         <div
           className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
           role="progressbar"
-          aria-valuenow={step + 1}
-          aria-valuemin={1}
-          aria-valuemax={total}
+          aria-valuenow={progressCurrent}
+          aria-valuemin={0}
+          aria-valuemax={progressTotal}
         >
           <div
             className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300 ease-out"
@@ -259,6 +424,16 @@ export function QuizForm({
             className="mt-4 text-sm font-medium text-zinc-600 underline-offset-2 hover:text-[var(--accent)] hover:underline disabled:opacity-50 dark:text-zinc-400"
           >
             Skip for now
+          </button>
+        ) : null}
+        {!q.required ? (
+          <button
+            type="button"
+            onClick={finishViaCheckpoint}
+            disabled={saving}
+            className="mt-2 block text-xs text-zinc-500 underline-offset-2 hover:text-[var(--accent)] hover:underline disabled:opacity-50 dark:text-zinc-400"
+          >
+            I&apos;m done — take me matching →
           </button>
         ) : null}
       </fieldset>

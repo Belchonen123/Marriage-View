@@ -31,8 +31,8 @@ export default async function OnboardingQuizPage({
           Questionnaire
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-          The first questions (marked with *) are required to unlock Discover. Everything else is optional—answer when you
-          can; it only improves matching. You can revisit anytime.
+          A few quick essentials get you matching. The rest are optional and sharpen your compatibility
+          over time — you can stop anytime once the essentials are done.
         </p>
         <div className="mt-4 flex justify-between gap-4 text-sm">
           <Link
