@@ -210,6 +210,33 @@ export default function SettingsPage() {
     show("Desktop alerts enabled for this browser.", "success");
   }
 
+  async function sendTestPush() {
+    try {
+      const res = await fetch("/api/push/test", { method: "POST", credentials: "include" });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        message?: string;
+        error?: string;
+        vapidConfigured?: boolean;
+        subscriptions?: number;
+      };
+      if (!res.ok) {
+        show(data.error ?? "Test failed", "error");
+        return;
+      }
+      const detail = `Subscriptions: ${data.subscriptions ?? 0} · VAPID: ${data.vapidConfigured ? "on" : "off"}`;
+      show(
+        data.ok
+          ? `${data.message ?? "Test push fired."} (${detail})`
+          : `${data.message ?? "Push not ready."} (${detail})`,
+        data.ok ? "success" : "info",
+        { durationMs: 8000 },
+      );
+    } catch (e) {
+      show(e instanceof Error ? e.message : "Test failed", "error");
+    }
+  }
+
   async function registerWebPush() {
     const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     if (!vapid) {
@@ -453,6 +480,13 @@ export default function SettingsPage() {
             className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-[var(--accent-hover)]"
           >
             Register Web Push
+          </button>
+          <button
+            type="button"
+            onClick={() => void sendTestPush()}
+            className="rounded-full border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900 transition hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100"
+          >
+            Send test notification
           </button>
         </div>
       </section>

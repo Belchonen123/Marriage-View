@@ -45,3 +45,5 @@ next-env.d.ts
 
 # generated code-review bundle (npm run export:review)
 /code-review-bundle.txt
+
+.vercel
