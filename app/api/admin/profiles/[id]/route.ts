@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { insertAdminAudit } from "@/lib/admin-audit";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getUserTier } from "@/lib/entitlements";
 import { isUuid } from "@/lib/uuid";
@@ -138,4 +139,51 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         : null,
     },
   });
+}
+
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const gate = await requireAdmin();
+  if (!gate.ok) return gate.response;
+
+  const { id } = await ctx.params;
+  if (!id || !isUuid(id)) {
+    return NextResponse.json({ error: "Invalid profile id" }, { status: 400 });
+  }
+
+  if (id === gate.user.id) {
+    return NextResponse.json(
+      { error: "You can't delete your own admin account from here." },
+      { status: 400 },
+    );
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  const { data: target } = await admin
+    .from("profiles")
+    .select("id, display_name")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error: authErr } = await admin.auth.admin.deleteUser(id);
+  if (authErr) {
+    return NextResponse.json({ error: authErr.message }, { status: 400 });
+  }
+
+  await admin.from("profiles").delete().eq("id", id);
+
+  await insertAdminAudit(admin, {
+    actor_user_id: gate.user.id,
+    action: "profiles.delete",
+    target_type: "profiles",
+    target_id: id,
+    payload_json: { display_name: target?.display_name ?? null },
+  });
+
+  return NextResponse.json({ ok: true });
 }

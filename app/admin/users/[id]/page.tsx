@@ -8,7 +8,7 @@ import { AdminMessagesSection } from "@/app/admin/users/[id]/messages-section";
 import { AdminQuestionnaireSection } from "@/app/admin/users/[id]/questionnaire-section";
 import { parseNotificationPrefs } from "@/lib/retention/notification-prefs";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 type ProfileDetail = {
@@ -65,6 +65,7 @@ type DetailResponse = {
 
 export default function AdminUserDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = typeof params.id === "string" ? params.id : "";
 
   const [data, setData] = useState<DetailResponse | null>(null);
@@ -72,6 +73,9 @@ export default function AdminUserDetailPage() {
   const [entTier, setEntTier] = useState<"free" | "plus">("plus");
   const [entMsg, setEntMsg] = useState<string | null>(null);
   const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -125,6 +129,25 @@ export default function AdminUserDetailPage() {
     }
     setVerifyMsg(action === "approve" ? "Marked verified." : "Marked rejected.");
     void load();
+  }
+
+  async function deleteUser() {
+    if (!data) return;
+    setDeleteMsg(null);
+    setDeleting(true);
+    try {
+      const res = await adminApiFetch(`/api/admin/profiles/${id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteMsg(json.error ?? "Failed to delete user.");
+        setDeleting(false);
+        return;
+      }
+      router.replace("/admin/users");
+    } catch (e) {
+      setDeleteMsg(e instanceof Error ? e.message : "Failed to delete user.");
+      setDeleting(false);
+    }
   }
 
   if (!id) {
@@ -368,6 +391,40 @@ export default function AdminUserDetailPage() {
           <AdminQuestionnaireSection userId={id} />
           <AdminMessagesSection userId={id} />
           <AdminActivitySection userId={id} />
+
+          <div className="rounded-xl border border-red-300 bg-red-50/60 p-4 dark:border-red-900/60 dark:bg-red-950/30">
+            <h2 className="text-lg font-semibold text-red-900 dark:text-red-200">Danger zone</h2>
+            <p className="mt-1 text-sm text-red-900/80 dark:text-red-200/80">
+              Permanently deletes this user&apos;s auth account and cascades to their profile, matches,
+              messages, likes, blocks, reports, and questionnaire answers. This cannot be undone.
+            </p>
+            <p className="mt-3 text-xs font-medium text-red-900 dark:text-red-200">
+              Type <code className="rounded bg-red-100 px-1 py-0.5 dark:bg-red-900/50">DELETE</code> to confirm.
+            </p>
+            <div className="mt-2 flex flex-wrap items-end gap-3">
+              <input
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="DELETE"
+                className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-mono dark:border-red-800/60 dark:bg-zinc-900"
+                aria-label="Type DELETE to confirm"
+              />
+              <button
+                type="button"
+                disabled={deleteConfirm !== "DELETE" || deleting}
+                onClick={() => void deleteUser()}
+                className="rounded-full bg-red-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete user permanently"}
+              </button>
+            </div>
+            {deleteMsg ? (
+              <p className="mt-3 text-sm text-red-700 dark:text-red-300" role="alert">
+                {deleteMsg}
+              </p>
+            ) : null}
+          </div>
         </>
       )}
     </div>
