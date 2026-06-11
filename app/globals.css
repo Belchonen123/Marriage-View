@@ -4,40 +4,43 @@
 
 /* Layout tokens: use --radius-lg, --shadow-card, --accent* for cards and CTAs so surfaces stay visually aligned. */
 :root {
-  --background: #fff5f5;
-  --foreground: #1a0a0c;
+  --background: #F7F3F0;
+  --foreground: #333333;
   --surface: rgba(255, 255, 255, 0.72);
   --surface-elevated: #ffffff;
-  --accent: #be123c;
-  --accent-hover: #9f1239;
-  --accent-muted: rgba(190, 18, 60, 0.12);
-  --ring: rgba(190, 18, 60, 0.45);
+  --accent: #7A0F2E;
+  --accent-hover: #5C0822;
+  --accent-muted: rgba(122, 15, 46, 0.12);
+  --gold: #D4AF37;
+  --gold-soft: rgba(212, 175, 55, 0.18);
+  --rose-soft: #E7A5A5;
+  --ring: rgba(122, 15, 46, 0.45);
   --radius-lg: 1.25rem;
   --border-card: rgba(26, 10, 12, 0.07);
   --shadow-card:
     0 1px 2px rgba(26, 10, 12, 0.06),
-    0 2px 10px rgba(190, 18, 60, 0.09),
+    0 2px 10px rgba(122, 15, 46, 0.09),
     0 12px 40px rgba(26, 10, 12, 0.09),
-    0 28px 64px rgba(190, 18, 60, 0.07);
+    0 28px 64px rgba(122, 15, 46, 0.07);
   --shadow-card-hover:
     0 2px 6px rgba(26, 10, 12, 0.08),
-    0 8px 32px rgba(190, 18, 60, 0.14),
+    0 8px 32px rgba(122, 15, 46, 0.14),
     0 20px 56px rgba(26, 10, 12, 0.11),
-    0 40px 80px rgba(190, 18, 60, 0.09);
+    0 40px 80px rgba(122, 15, 46, 0.09);
   --shadow-card-dark:
     0 1px 3px rgba(0, 0, 0, 0.45),
     0 6px 28px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 22px 56px rgba(251, 113, 133, 0.1);
+    0 22px 56px rgba(231, 165, 165, 0.1);
   --shadow-card-hover-dark:
     0 2px 8px rgba(0, 0, 0, 0.55),
     0 14px 44px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 32px 72px rgba(251, 113, 133, 0.14);
+    0 32px 72px rgba(231, 165, 165, 0.14);
   --shadow-nav:
     0 1px 0 rgba(255, 255, 255, 0.55) inset,
     0 4px 24px rgba(26, 10, 12, 0.1),
-    0 14px 44px rgba(190, 18, 60, 0.08);
+    0 14px 44px rgba(122, 15, 46, 0.08);
   --shadow-nav-dark:
     0 1px 0 rgba(255, 255, 255, 0.07) inset,
     0 4px 28px rgba(0, 0, 0, 0.5),
@@ -45,31 +48,34 @@
   --shadow-modal:
     0 2px 8px rgba(26, 10, 12, 0.12),
     0 16px 48px rgba(26, 10, 12, 0.14),
-    0 32px 72px rgba(190, 18, 60, 0.12),
+    0 32px 72px rgba(122, 15, 46, 0.12),
     0 0 0 1px rgba(26, 10, 12, 0.04);
   --shadow-modal-dark:
     0 2px 12px rgba(0, 0, 0, 0.55),
     0 24px 64px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(255, 255, 255, 0.09),
-    0 40px 88px rgba(251, 113, 133, 0.12);
-  --mesh-1: rgba(251, 113, 133, 0.18);
-  --mesh-2: rgba(253, 186, 116, 0.14);
-  --mesh-3: rgba(244, 114, 182, 0.1);
+    0 40px 88px rgba(231, 165, 165, 0.12);
+  --mesh-1: rgba(231, 165, 165, 0.22);
+  --mesh-2: rgba(212, 175, 55, 0.10);
+  --mesh-3: rgba(122, 15, 46, 0.08);
 }
 
 html.dark {
   --background: #0a0708;
-  --foreground: #fdf2f4;
+  --foreground: #F7F3F0;
   --surface: rgba(24, 24, 27, 0.75);
   --surface-elevated: #18181b;
-  --accent: #fb7185;
-  --accent-hover: #fda4af;
-  --accent-muted: rgba(251, 113, 133, 0.15);
-  --ring: rgba(251, 113, 133, 0.5);
+  --accent: #E7A5A5;
+  --accent-hover: #F3C5C5;
+  --accent-muted: rgba(231, 165, 165, 0.15);
+  --gold: #D4AF37;
+  --gold-soft: rgba(212, 175, 55, 0.18);
+  --rose-soft: #E7A5A5;
+  --ring: rgba(231, 165, 165, 0.5);
   --border-card: rgba(255, 255, 255, 0.09);
-  --mesh-1: rgba(190, 18, 60, 0.14);
-  --mesh-2: rgba(251, 113, 133, 0.09);
-  --mesh-3: rgba(120, 50, 70, 0.18);
+  --mesh-1: rgba(122, 15, 46, 0.22);
+  --mesh-2: rgba(212, 175, 55, 0.10);
+  --mesh-3: rgba(231, 165, 165, 0.10);
 }
 
 @theme inline {
@@ -119,15 +125,15 @@ html.dark .card-surface-modal {
 .card-surface-glow {
   box-shadow:
     var(--shadow-card),
-    0 0 0 1px rgba(190, 18, 60, 0.06),
-    0 0 56px rgba(190, 18, 60, 0.14);
+    0 0 0 1px rgba(122, 15, 46, 0.06),
+    0 0 56px rgba(122, 15, 46, 0.14);
 }
 
 html.dark .card-surface-glow {
   box-shadow:
     var(--shadow-card-dark),
-    0 0 0 1px rgba(251, 113, 133, 0.12),
-    0 0 64px rgba(251, 113, 133, 0.1);
+    0 0 0 1px rgba(231, 165, 165, 0.12),
+    0 0 64px rgba(231, 165, 165, 0.1);
 }
 
 .nav-shell {
@@ -255,7 +261,7 @@ html.dark .skeleton-shimmer::after {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.2) inset,
     0 2px 8px rgba(127, 29, 29, 0.35),
-    0 10px 28px rgba(190, 18, 60, 0.28);
+    0 10px 28px rgba(122, 15, 46, 0.28);
   transition:
     box-shadow 0.2s ease,
     filter 0.2s ease,
@@ -267,7 +273,7 @@ html.dark .cta-video-primary {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.08) inset,
     0 2px 12px rgba(0, 0, 0, 0.45),
-    0 12px 32px rgba(251, 113, 133, 0.22);
+    0 12px 32px rgba(231, 165, 165, 0.22);
 }
 
 .cta-video-primary:hover:not(:disabled) {
@@ -275,14 +281,14 @@ html.dark .cta-video-primary {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.22) inset,
     0 4px 14px rgba(127, 29, 29, 0.4),
-    0 14px 36px rgba(190, 18, 60, 0.32);
+    0 14px 36px rgba(122, 15, 46, 0.32);
 }
 
 html.dark .cta-video-primary:hover:not(:disabled) {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.1) inset,
     0 4px 16px rgba(0, 0, 0, 0.55),
-    0 14px 40px rgba(251, 113, 133, 0.28);
+    0 14px 40px rgba(231, 165, 165, 0.28);
 }
 
 .cta-video-primary:focus-visible {
@@ -291,7 +297,7 @@ html.dark .cta-video-primary:hover:not(:disabled) {
     0 0 0 2px var(--background),
     0 0 0 4px var(--ring),
     0 2px 8px rgba(127, 29, 29, 0.35),
-    0 10px 28px rgba(190, 18, 60, 0.28);
+    0 10px 28px rgba(122, 15, 46, 0.28);
 }
 
 html.dark .cta-video-primary:focus-visible {
@@ -299,7 +305,7 @@ html.dark .cta-video-primary:focus-visible {
     0 0 0 2px var(--background),
     0 0 0 4px var(--ring),
     0 2px 12px rgba(0, 0, 0, 0.45),
-    0 12px 32px rgba(251, 113, 133, 0.22);
+    0 12px 32px rgba(231, 165, 165, 0.22);
 }
 
 .cta-video-primary:active:not(:disabled) {
