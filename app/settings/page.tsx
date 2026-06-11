@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const { show } = useToast();
   const [userId, setUserId] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState("");
+  const [reportable, setReportable] = useState<{ userId: string; displayName: string }[]>([]);
   const [reason, setReason] = useState("harassment");
   const [details, setDetails] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -80,10 +81,19 @@ export default function SettingsPage() {
         setTier(e.tier ?? "free");
       }
 
-      const [npRes, rpRes] = await Promise.all([
+      const [npRes, rpRes, rpReportRes] = await Promise.all([
         fetch("/api/me/notification-prefs"),
         fetch("/api/me/retention-progress"),
+        fetch("/api/me/reportable"),
       ]);
+      if (rpReportRes.ok) {
+        const j = (await rpReportRes.json()) as {
+          items?: { userId: string; displayName: string }[];
+        };
+        setReportable(j.items ?? []);
+      }
+
+
       if (npRes.ok) {
         const j = (await npRes.json()) as { prefs: RetentionNotificationPrefs };
         setRetentionNotifPrefs(j.prefs);
@@ -140,7 +150,7 @@ export default function SettingsPage() {
   async function submitReport() {
     setMsg(null);
     if (!reportTarget.trim()) {
-      const text = "Enter the user id of the person you want to report.";
+      const text = "Pick the person you want to report.";
       setMsg(text);
       show(text, "error");
       return;
@@ -159,13 +169,15 @@ export default function SettingsPage() {
       const raw = typeof data.error === "string" ? data.error : "";
       const friendly =
         res.status === 401
-          ? "Sign in again, then try submitting the report."
-          : raw || `Could not submit the report (error ${res.status}). Check the user id and try again.`;
+          ? "Please sign in again, then try submitting the report."
+          : raw || "We couldn't submit your report. Please try again.";
       setMsg(friendly);
       show(friendly, "error");
     } else {
       setMsg("Report submitted. Thank you.");
       show("Report submitted. Thank you.", "success");
+      setReportTarget("");
+      setDetails("");
     }
   }
 
@@ -227,20 +239,12 @@ export default function SettingsPage() {
         show(data.error ?? "Test failed", "error");
         return;
       }
-      const parts: string[] = [];
-      parts.push(`Subs: ${data.subscriptions ?? 0}`);
-      parts.push(`VAPID: ${data.vapidConfigured ? "on" : "off"}`);
-      if (data.results?.length) {
-        const codes = data.results.map((r) => (r.ok ? "✓" : `✗${r.statusCode ?? "?"}`)).join(" ");
-        parts.push(`Send: ${codes}`);
-      }
-      show(
-        data.ok
-          ? `${data.message ?? "Test push fired."} (${parts.join(" · ")})`
-          : `${data.message ?? "Push not ready."} (${parts.join(" · ")})`,
-        data.ok ? "success" : "info",
-        { durationMs: 12000 },
-      );
+      const message = data.ok
+        ? "Test notification sent — check your device."
+        : data.subscriptions === 0
+          ? "We haven't saved notifications for this device yet. Tap Register Web Push, allow notifications, then try again."
+          : "Notifications aren't reaching this device. Tap Register Web Push to re-enable them.";
+      show(message, data.ok ? "success" : "info", { durationMs: 10000 });
     } catch (e) {
       show(e instanceof Error ? e.message : "Test failed", "error");
     }
@@ -249,7 +253,7 @@ export default function SettingsPage() {
   async function registerWebPush() {
     const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     if (!vapid) {
-      show("Push is not configured (missing VAPID keys on the server).", "error");
+      show("Notifications aren't available right now. Please try again later.", "error");
       return;
     }
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
@@ -351,8 +355,7 @@ export default function SettingsPage() {
       <section className="card-surface space-y-3 border border-zinc-200/80 p-5 dark:border-zinc-700/80">
         <h2 className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50">Dating coach</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Ask for help with pacing, boundaries, and conversation — powered by AI when the server has an API key
-          configured.
+          Get a hand with pacing, boundaries, and how to keep a conversation going.
         </p>
         <Link
           href="/coach"
@@ -366,9 +369,6 @@ export default function SettingsPage() {
         <h2 className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50">Plan</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           Current tier: <span className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{tier}</span>
-        </p>
-        <p className="text-xs text-zinc-500">
-          Premium entitlements are managed by admins for now. Higher tiers may raise discover interaction limits.
         </p>
       </section>
 
@@ -434,12 +434,12 @@ export default function SettingsPage() {
       >
         <h2 className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50">Alerts</h2>
         <p className="text-xs text-zinc-500">
-          New accounts default to alerts on. The toggles below apply on this browser only. Weekly digest and reflection
-          nudges (saved to your account) are in{" "}
+          These toggles apply on this browser only. Weekly digests and reflection nudges (saved to your account) live
+          under{" "}
           <a href="#reflections-nudges" className="font-medium text-[var(--accent)] hover:underline">
             Reflections &amp; gentle nudges
           </a>
-          . Web Push needs VAPID keys on the server.
+          .
         </p>
         <label className="flex cursor-pointer items-center gap-3 text-sm text-zinc-700 dark:text-zinc-300">
           <input
@@ -478,7 +478,7 @@ export default function SettingsPage() {
               setPushOn(on);
             }}
           />
-          Allow Web Push registration after sign-in (when configured)
+          Allow notifications when the app is closed
         </label>
         {notifPerm !== "unsupported" ? (
           <p className="text-xs text-zinc-600 dark:text-zinc-400">Permission: {notifPerm}</p>
@@ -612,54 +612,116 @@ export default function SettingsPage() {
         </ul>
       </section>
 
-      <section className="card-surface border border-zinc-200/80 p-5 dark:border-zinc-700/80">
-        <h2 className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50">Your user id</h2>
-        <p className="mt-2 break-all font-mono text-xs text-zinc-600 dark:text-zinc-400">
-          {userId ?? "…"}
+      <section className="card-surface space-y-3 border border-zinc-200/80 p-5 dark:border-zinc-700/80">
+        <h2 className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50">Support</h2>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Need help, want to leave feedback, or have an account question? WhatsApp Ben at{" "}
+          <a
+            href="https://wa.me/16465044236?text=Hi%20Ben%20%E2%80%94%20support%20request%3A%20"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+          >
+            (646) 504-4236
+          </a>
+          .
         </p>
+        <details className="text-xs text-zinc-500">
+          <summary className="cursor-pointer font-medium text-zinc-600 dark:text-zinc-300">
+            Account reference (for support)
+          </summary>
+          <p className="mt-2 break-all font-mono text-zinc-500">{userId ?? "…"}</p>
+          <button
+            type="button"
+            onClick={() => {
+              if (userId) {
+                void navigator.clipboard.writeText(userId).then(() => show("Copied.", "success"));
+              }
+            }}
+            className="mt-2 rounded-full border border-zinc-300 px-3 py-1 text-[11px] font-medium hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
+          >
+            Copy
+          </button>
+        </details>
       </section>
 
       <section id="report-someone" className="card-surface space-y-3 border border-zinc-200/80 p-5 dark:border-zinc-700/80 scroll-mt-24">
         <h2 className="font-display text-base font-semibold text-zinc-900 dark:text-zinc-50">Report someone</h2>
-        <p className="text-xs text-zinc-500">
-          Paste the user id of the person you want to report. You can copy it from their profile.
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Pick a match or someone who liked you, choose a reason, and add details if you want. We take every
+          report seriously.
         </p>
         <details className="rounded-lg border border-zinc-200/80 bg-zinc-50/50 px-3 py-2 text-xs dark:border-zinc-700/80 dark:bg-zinc-900/30">
           <summary className="cursor-pointer font-medium text-zinc-700 dark:text-zinc-300">
-            Why we ask · what happens next
+            What happens after you report
           </summary>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-            Reports help us spot harassment, scams, and policy violations. We review tickets as we can; you may not get
-            a personal reply. For emergencies, contact local authorities.
+            Reports help us spot harassment, scams, and policy violations. Our team reviews each one and acts
+            on confirmed violations. For emergencies, contact local authorities.
           </p>
         </details>
-        <input
-          className="input-focus w-full rounded-xl border border-zinc-200 bg-[var(--background)] px-3 py-2.5 text-sm dark:border-zinc-700"
-          placeholder="Reported user id"
-          value={reportTarget}
-          onChange={(e) => setReportTarget(e.target.value)}
-        />
-        <select
-          className="input-focus w-full rounded-xl border border-zinc-200 bg-[var(--background)] px-3 py-2.5 text-sm dark:border-zinc-700"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        >
-          {["harassment", "spam", "fake_profile", "other"].map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
-        <textarea
-          className="input-focus min-h-[88px] w-full rounded-xl border border-zinc-200 bg-[var(--background)] px-3 py-2.5 text-sm dark:border-zinc-700"
-          placeholder="Optional details"
-          value={details}
-          onChange={(e) => setDetails(e.target.value)}
-        />
+
+        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+          Person to report
+          {reportable.length === 0 ? (
+            <p className="mt-2 rounded-lg border border-zinc-200/80 bg-zinc-50/60 px-3 py-2 text-sm font-normal text-zinc-600 dark:border-zinc-700/80 dark:bg-zinc-900/30 dark:text-zinc-300">
+              You don&apos;t have any matches or inbound likes yet. Reports can only be filed for people
+              you&apos;ve interacted with. If you need help with something else, WhatsApp Ben at{" "}
+              <a
+                href="https://wa.me/16465044236"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+              >
+                (646) 504-4236
+              </a>
+              .
+            </p>
+          ) : (
+            <select
+              className="input-focus mt-1 w-full rounded-xl border border-zinc-200 bg-[var(--background)] px-3 py-2.5 text-sm dark:border-zinc-700"
+              value={reportTarget}
+              onChange={(e) => setReportTarget(e.target.value)}
+            >
+              <option value="">Choose a person…</option>
+              {reportable.map((r) => (
+                <option key={r.userId} value={r.userId}>
+                  {r.displayName}
+                </option>
+              ))}
+            </select>
+          )}
+        </label>
+
+        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+          Reason
+          <select
+            className="input-focus mt-1 w-full rounded-xl border border-zinc-200 bg-[var(--background)] px-3 py-2.5 text-sm dark:border-zinc-700"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          >
+            <option value="harassment">Harassment or abuse</option>
+            <option value="spam">Spam</option>
+            <option value="fake_profile">Fake profile</option>
+            <option value="other">Something else</option>
+          </select>
+        </label>
+
+        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+          What happened (optional)
+          <textarea
+            className="input-focus mt-1 min-h-[88px] w-full rounded-xl border border-zinc-200 bg-[var(--background)] px-3 py-2.5 text-sm dark:border-zinc-700"
+            placeholder="Anything we should know…"
+            value={details}
+            onChange={(e) => setDetails(e.target.value)}
+          />
+        </label>
+
         <button
           type="button"
           onClick={() => void submitReport()}
-          className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[var(--accent-hover)] active:scale-[0.98]"
+          disabled={reportable.length === 0 || !reportTarget}
+          className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[var(--accent-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Submit report
         </button>

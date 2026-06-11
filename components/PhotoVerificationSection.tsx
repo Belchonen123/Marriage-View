@@ -115,7 +115,7 @@ export function PhotoVerificationSection() {
       </p>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         Upload a current selfie (same person as your profile). A team member compares it to your photos and clears a
-        verified badge on Discover — no automated liveness in this MVP.
+        verified badge on Discover.
       </p>
       {previewUrl && status !== "none" ? (
         <div className="relative mx-auto h-40 w-40 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
