@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { FeatureFlagsProvider } from "@/components/FeatureFlagsProvider";
 import { GlobalRealtimeNotifications } from "@/components/GlobalRealtimeNotifications";
 import { PwaInstall } from "@/components/PwaInstall";
@@ -76,6 +77,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
         <ToastProvider>
           <ThemeSync />
+          <AnalyticsProvider />
           <GlobalRealtimeNotifications />
           <FeatureFlagsProvider>
             <Shell>{children}</Shell>

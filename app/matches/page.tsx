@@ -1,6 +1,8 @@
+import { BrandCard } from "@/components/BrandCard";
 import { EmptyState } from "@/components/EmptyState";
 import { InboundLikesSection } from "@/components/InboundLikesSection";
 import { MatchesList, type MatchPreview } from "@/components/MatchesList";
+import { ShareButton } from "@/components/ShareButton";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -127,6 +129,13 @@ export default async function MatchesPage() {
       ) : (
         <MatchesList selfId={user.id} matches={previews} />
       )}
+      <div className="flex flex-col items-center gap-3 pt-4">
+        <ShareButton placement="waiting_room" />
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Know someone marriage-minded? Share Marriage View.
+        </p>
+      </div>
+      <BrandCard variant="compact" placement="waiting_room" />
     </div>
   );
 }

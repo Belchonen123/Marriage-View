@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandCard } from "@/components/BrandCard";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ToastProvider";
 import {
@@ -95,7 +96,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col lg:flex-row">
+    <div className="flex min-h-full flex-col">
+    <div className="flex flex-1 flex-col lg:flex-row">
       <div className="relative flex flex-1 flex-col justify-center px-6 py-12 lg:px-12 lg:py-16">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.2]"
@@ -279,6 +281,8 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+    </div>
+      <BrandCard variant="full" placement="landing_footer" showCommunityLine />
     </div>
   );
 }
