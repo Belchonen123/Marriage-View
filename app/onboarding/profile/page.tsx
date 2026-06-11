@@ -35,11 +35,11 @@ function normalizePartnerAgesFromDb(
   ageMinRaw: number | null | undefined,
   ageMaxRaw: number | null | undefined,
 ): { ageMin: number; ageMax: number } {
-  let ageMin = normalizeAgeFromDb(ageMinRaw, 22);
-  let ageMax = normalizeAgeFromDb(ageMaxRaw, 45);
+  let ageMin = normalizeAgeFromDb(ageMinRaw, AGE_MIN_ALLOWED);
+  let ageMax = normalizeAgeFromDb(ageMaxRaw, AGE_MAX_ALLOWED);
   if (ageMin > ageMax) {
-    ageMin = 22;
-    ageMax = 45;
+    ageMin = AGE_MIN_ALLOWED;
+    ageMax = AGE_MAX_ALLOWED;
   }
   return { ageMin, ageMax };
 }
@@ -57,9 +57,11 @@ export default function OnboardingProfilePage() {
   const [cityChoice, setCityChoice] = useState<string>("");
   const [bio, setBio] = useState("");
   const [gender, setGender] = useState<"" | "woman" | "man">("");
-  const [ageMin, setAgeMin] = useState<number | "">(22);
-  const [ageMax, setAgeMax] = useState<number | "">(45);
-  const [maxKm, setMaxKm] = useState<number | "">(200);
+  const [ageMin, setAgeMin] = useState<number | "">(AGE_MIN_ALLOWED);
+  const [ageMax, setAgeMax] = useState<number | "">(AGE_MAX_ALLOWED);
+  // 20000 km ≈ half the earth's circumference — effectively worldwide for the
+  // haversine filter in /api/discover. Users can narrow this from Settings.
+  const [maxKm, setMaxKm] = useState<number | "">(20000);
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -90,7 +92,7 @@ export default function OnboardingProfilePage() {
         const rawKm = p.max_distance_km as number | null | undefined;
         const km =
           rawKm == null || !Number.isFinite(rawKm) || rawKm < 1
-            ? 200
+            ? 20_000
             : Math.min(20_000, Math.max(1, Math.round(rawKm)));
         setMaxKm(km);
         setLat(p.latitude != null ? String(p.latitude) : "");
